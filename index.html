@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Simuladores de taller</title>
+<meta name="description" content="Simuladores prácticos de electromecánica y automoción">
+<meta name="theme-color" content="#1b232c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Simuladores">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ACCESO -->
+<main class="wrap login" id="v-login" hidden>
+  <form class="login-card" id="f-login" autocomplete="on" novalidate>
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="">
+      <div><h1 data-cfg="NOMBRE_APP">Simuladores de taller</h1><small data-cfg="CENTRO"></small></div>
+    </div>
+    <p class="banner" id="demo-login" hidden>Modo prueba: falta poner la URL del servidor en config.js. Puedes entrar con cualquier usuario; no se guarda nada.</p>
+    <div class="field"><label for="in-user">Usuario</label><input id="in-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <div class="field"><label for="in-pin">PIN</label><input id="in-pin" name="password" type="password" autocomplete="current-password" required></div>
+    <p class="msg bad" id="login-err" role="alert" hidden></p>
+    <button class="btn primary" type="submit" id="b-login">Entrar</button>
+    <p class="aviso"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 9v5M10 6.2v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span data-cfg="AVISO"></span></p>
+  </form>
+</main>
+
+<!-- INICIO -->
+<div id="v-home" hidden>
+  <header class="wrap top">
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="">
+      <div><h1 data-cfg="NOMBRE_APP">Simuladores de taller</h1><small data-cfg="CENTRO"></small></div>
+    </div>
+    <div class="user">
+      <span class="chip"><b id="u-name"></b><span id="u-group"></span></span>
+      <a class="btn small" href="panel.html" id="b-panel" hidden>Panel del profesor</a>
+      <button class="btn small" type="button" id="b-install" hidden>Instalar app</button>
+      <button class="btn small ghost" type="button" id="b-logout">Salir</button>
+    </div>
+  </header>
+  <main class="wrap">
+    <p class="banner" id="demo-home" hidden>Modo prueba: la actividad no se guarda. Pon la URL del servidor en config.js.</p>
+    <p class="banner" id="ios-hint" hidden>Para instalarla en el iPhone o iPad: botón Compartir y «Añadir a pantalla de inicio».</p>
+    <div class="sec-h"><h2>Simuladores</h2><p id="prog-note"></p></div>
+    <div class="grid" id="grid"></div>
+    <footer class="foot"><span data-cfg="AVISO"></span><span id="sync"></span></footer>
+  </main>
+</div>
+
+<script src="config.js"></script>
+<script src="catalogo.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

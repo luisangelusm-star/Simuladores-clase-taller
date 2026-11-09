@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Panel del profesor</title>
+<meta name="theme-color" content="#1b232c">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/app.css">
+<style>
+.filters{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-top:10px}
+.filters label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.filters select,.filters input{min-height:38px;border:1px solid var(--line-strong);border-radius:8px;padding:6px 8px;background:var(--surface-2);color:var(--fg);font-size:14.5px;font-weight:400}
+.filters .grow{flex:1;min-width:160px}
+.filters .grow input{width:100%}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:16px 0 6px;border-top:2px solid var(--fg)}
+.kpi{padding:12px 16px 4px 0;min-width:0}
+.kpi + .kpi{padding-left:16px;border-left:1px solid var(--line)}
+.kpi b{display:block;font-family:var(--font-mono);font-size:1.6rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.kpi span{font-size:13px;color:var(--muted)}
+.tbl-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:auto;margin:14px 0 10px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--surface-2);font-size:12.5px;font-weight:600;color:var(--muted);z-index:1}
+th button{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
+th button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+th[aria-sort] button{color:var(--fg)}
+th.n{text-align:right}
+td.n{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+th.n button{justify-content:flex-end}
+tr.row{cursor:pointer}
+tr.row:hover td{background:var(--surface-2)}
+tr.row.sin td{color:var(--muted)}
+tr.row.sin td:first-child::after{content:" · sin actividad";font-size:12px;color:var(--bad)}
+td.name{font-weight:600;white-space:normal;min-width:160px}
+tr.det td{background:var(--surface-2);white-space:normal;padding:12px 14px 16px}
+.det-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.det h4{margin:0 0 6px;font-family:var(--font-display);font-size:1.1rem}
+.det table{font-size:13px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.det th{position:static}
+.det td{white-space:normal}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.note{font-size:13px;color:var(--muted);margin:0 0 28px}
+@media (max-width:720px){ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))} .kpi:nth-child(3){padding-left:0;border-left:0} }
+</style>
+</head>
+<body>
+<header class="wrap top">
+  <div class="brand">
+    <img src="icons/icon-192.png" alt="">
+    <div><h1>Panel del profesor</h1><small id="gen">Cargando datos…</small></div>
+  </div>
+  <div class="actions">
+    <a class="btn small" href="index.html">Simuladores</a>
+    <button class="btn small" type="button" id="b-reload">Actualizar</button>
+    <button class="btn small primary" type="button" id="b-csv">Descargar CSV</button>
+  </div>
+</header>
+<main class="wrap">
+  <p class="msg bad" id="err" hidden></p>
+  <section class="filters" aria-label="Filtros">
+    <label>Grupo<select id="f-grupo"></select></label>
+    <label>Simulador<select id="f-sim"></select></label>
+    <label>Desde<input type="date" id="f-desde"></label>
+    <label>Hasta<input type="date" id="f-hasta"></label>
+    <label class="grow">Buscar alumno<input type="search" id="f-q" placeholder="Nombre o usuario"></label>
+  </section>
+  <section class="kpis" id="kpis"></section>
+  <div class="tbl-wrap"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+  <p class="note">Tiempo activo: minutos con el simulador en pantalla y con actividad (ratón, teclado o pantalla táctil) en el último minuto y medio. Retos: ejercicios distintos superados con nota de 5 o más. Pulsa un alumno para ver el detalle.</p>
+</main>
+<script src="config.js"></script>
+<script src="catalogo.js"></script>
+<script src="js/api.js"></script>
+<script src="js/panel.js"></script>
+</body>
+</html>
