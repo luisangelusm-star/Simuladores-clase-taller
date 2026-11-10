@@ -1,0 +1,732 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Tensión diferencial CAN</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: banco de pruebas — osciloscopio a la izquierda con lecturas al lado; debajo, el esquema del alternador al bit y las fichas */
+:root{
+  --bg:#edf0f3; --surface:#ffffff; --surface-2:#f5f7f9; --fg:#131920; --muted:#566271;
+  --line:#d3dae2; --line-strong:#b6c0cb;
+  --accent:#1d5c8c; --accent-fg:#ffffff; --accent-soft:#dbe7f2;
+  --ch-h:#9a6400; --ch-l:#11784f; --ch-d:#a32f7a; --ch-bat:#bb3f0c;
+  --dom-bg:#f5e1ee; --rec-bg:#e4ebf2;
+  /* la pantalla del osciloscopio es oscura en los dos temas */
+  --scope:#0a1115; --scope-edge:#1c2a31; --scope-fg:#d6e4ea; --scope-muted:#8ea3ad;
+  --sc-h:#f5c542; --sc-l:#4fd69c; --sc-d:#f07bd0; --sc-bat:#ff8a5c; --sc-stuff:#7fb7ff;
+  --font-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --font-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1216; --surface:#161c22; --surface-2:#1b2229; --fg:#e5eaf0; --muted:#97a3b1;
+    --line:#29323b; --line-strong:#3b4753;
+    --accent:#6db3e8; --accent-fg:#071420; --accent-soft:#1c3346;
+    --ch-h:#f2c443; --ch-l:#52d39c; --ch-d:#f07fd2; --ch-bat:#ff8b5e;
+    --dom-bg:#3a1c31; --rec-bg:#1c2731;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1216; --surface:#161c22; --surface-2:#1b2229; --fg:#e5eaf0; --muted:#97a3b1;
+  --line:#29323b; --line-strong:#3b4753;
+  --accent:#6db3e8; --accent-fg:#071420; --accent-soft:#1c3346;
+  --ch-h:#f2c443; --ch-l:#52d39c; --ch-d:#f07fd2; --ch-bat:#ff8b5e;
+  --dom-bg:#3a1c31; --rec-bg:#1c2731;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.5}
+.page{max-width:1200px;margin:0 auto;padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+
+.eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+h1{font-family:var(--font-display);font-weight:700;font-size:clamp(2rem,4.4vw,3.1rem);line-height:1.02;letter-spacing:.005em;margin:0;text-wrap:balance}
+h2{font-family:var(--font-display);font-weight:700;font-size:1.65rem;line-height:1.1;margin:0;text-wrap:balance}
+h3{font-family:var(--font-display);font-weight:700;font-size:1.3rem;line-height:1.1;margin:0}
+.lede{max-width:66ch;color:var(--muted);margin:12px 0 0;font-size:1.05rem}
+.lede b{color:var(--fg)}
+.t-h{color:var(--ch-h);font-weight:700}.t-l{color:var(--ch-l);font-weight:700}.t-d{color:var(--ch-d);font-weight:700}.t-bat{color:var(--ch-bat);font-weight:700}
+
+/* banco */
+.lab{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:20px;align-items:start}
+.lab-main{min-width:0;display:flex;flex-direction:column;gap:14px}
+.scope{background:var(--scope);border:1px solid var(--scope-edge);border-radius:14px;padding:10px 10px 12px}
+.scope-head{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:space-between;padding:2px 4px 10px;font-family:var(--font-mono);font-size:12px;color:var(--scope-muted)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px}
+.legend span{display:inline-flex;align-items:center;gap:6px;color:var(--scope-fg)}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px;background:currentColor}
+.legend .lg-h{color:var(--sc-h)}.legend .lg-l{color:var(--sc-l)}.legend .lg-d{color:var(--sc-d)}.legend .lg-bat{color:var(--sc-bat)}
+.legend .lg-s b{color:var(--sc-stuff);font-weight:600}
+.legend .lg-s{color:var(--scope-muted)}
+canvas{display:block;width:100%;height:420px;border-radius:8px;touch-action:pan-y;cursor:crosshair}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.btn{font:inherit;font-weight:700;display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border-radius:9px;border:1px solid transparent;background:var(--accent);color:var(--accent-fg);cursor:pointer;min-width:118px;justify-content:center}
+.btn:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.ico{width:14px;height:14px;fill:currentColor}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.seg label{padding:8px 12px;cursor:pointer;font-weight:700;font-size:.93rem;color:var(--muted);border-right:1px solid var(--line);white-space:nowrap}
+.seg label:last-of-type{border-right:0}
+.seg input:checked + label{background:var(--accent-soft);color:var(--fg)}
+.seg input:focus-visible + label{outline:2px solid var(--accent);outline-offset:-2px}
+.switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-weight:700}
+.switch input{appearance:none;-webkit-appearance:none;margin:0;width:40px;height:23px;border-radius:12px;background:var(--line-strong);position:relative;cursor:pointer;transition:background .15s}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:var(--surface);transition:transform .15s}
+.switch input:checked{background:var(--accent)}
+.switch input:checked::after{transform:translateX(17px)}
+.switch input:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.speed{display:inline-flex;align-items:center;gap:10px;font-weight:700}
+.speed input{width:130px;accent-color:var(--accent)}
+.speed output{font-family:var(--font-mono);font-weight:600;font-size:.9rem;color:var(--muted);min-width:7ch;font-variant-numeric:tabular-nums}
+
+.readouts{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.state{display:grid;grid-template-columns:auto 1fr;column-gap:14px;align-items:center;padding:12px 14px;border-radius:10px;background:var(--rec-bg);transition:background .12s}
+.state[data-state="dom"]{background:var(--dom-bg)}
+.state-v{grid-row:1/3;font-family:var(--font-mono);font-weight:600;font-size:3rem;line-height:1;font-variant-numeric:tabular-nums}
+.state-k{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.state-n{font-family:var(--font-display);font-size:1.55rem;font-weight:700;line-height:1.1}
+.readouts dl{margin:0;display:flex;flex-direction:column}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.row dt{color:var(--muted);font-size:.92rem}
+.row dd{margin:0;font-family:var(--font-mono);font-weight:600;font-size:1.02rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.row.bat dd{color:var(--ch-bat)}.row.h dd{color:var(--ch-h)}.row.l dd{color:var(--ch-l)}.row.d dd{color:var(--ch-d)}
+.row.d{background:var(--surface-2);margin:0 -8px;padding:8px;border-radius:6px}
+.frame{margin:0;font-size:.88rem;color:var(--muted);font-family:var(--font-mono)}
+.hint{margin:0;font-size:.85rem;color:var(--muted)}
+
+/* esquema */
+.block{display:flex;flex-direction:column;gap:14px}
+.block > p{margin:0;max-width:66ch;color:var(--muted)}
+.diagram-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 12px}
+.svg-scroll{overflow-x:auto}
+.diagram{display:block;width:100%;min-width:760px;height:auto}
+.d-box{fill:var(--surface-2);stroke:var(--line-strong);stroke-width:1.5}
+.d-frame{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:5 5;opacity:.7}
+.d-title{font-family:var(--font-body);font-weight:700;font-size:14px;fill:var(--fg)}
+.d-sub{font-family:var(--font-body);font-size:12px;fill:var(--muted)}
+.d-val{font-family:var(--font-mono);font-weight:600;font-size:18px;fill:var(--fg)}
+.d-arrow{stroke:var(--muted);stroke-width:2;fill:none}
+.d-ah{fill:var(--muted)}
+.d-res{fill:var(--surface);stroke:var(--fg);stroke-width:1.5}
+.d-lead{stroke:var(--fg);stroke-width:1.5}
+.w-h,.w-l{fill:none;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;opacity:.5;transition:opacity .1s}
+.w-h{stroke:var(--ch-h)}.w-l{stroke:var(--ch-l)}
+.diagram.dom .w-h,.diagram.dom .w-l{opacity:1}
+.v-bat{fill:var(--ch-bat)}.v-h{fill:var(--ch-h)}.v-l{fill:var(--ch-l)}.v-d{fill:var(--ch-d)}
+.d-noise{opacity:0;transition:opacity .2s}
+.diagram.noise .d-noise{opacity:1}
+.d-zig{fill:none;stroke:var(--ch-bat);stroke-width:2;stroke-linejoin:round}
+.d-noise text{fill:var(--ch-bat)}
+
+/* fichas */
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card p{margin:0}
+.pair{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:var(--font-mono);font-size:.92rem;font-weight:600;font-variant-numeric:tabular-nums;padding:8px 10px;border-radius:8px;background:var(--surface-2)}
+.tag{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.specs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-top:2px solid var(--fg)}
+.spec{padding:14px 18px 6px 0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.spec + .spec{padding-left:18px;border-left:1px solid var(--line)}
+.spec-v{font-family:var(--font-mono);font-weight:600;font-size:1.35rem;line-height:1.15}
+.spec p{margin:0;color:var(--muted);font-size:.95rem}
+
+.foot{margin:0;font-size:.88rem;color:var(--muted);max-width:80ch;border-top:1px solid var(--line);padding-top:16px}
+
+@media (max-width:940px){
+  .lab{grid-template-columns:minmax(0,1fr)}
+  .readouts dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px}
+  .row.d{margin:0;padding:8px 0;background:none}
+}
+@media (max-width:720px){
+  .cards{grid-template-columns:minmax(0,1fr)}
+  .specs{grid-template-columns:minmax(0,1fr)}
+  .spec + .spec{padding-left:0;border-left:0;border-top:1px solid var(--line)}
+}
+@media (max-width:520px){
+  .readouts dl{grid-template-columns:minmax(0,1fr)}
+  .seg label{padding:8px 9px;font-size:.88rem}
+  .speed input{width:110px}
+}
+@media (prefers-reduced-motion: reduce){
+  .w-h,.w-l,.state,.d-noise,.switch input,.switch input::after{transition:none}
+}
+</style>
+
+<div class="page">
+  <header>
+    <p class="eyebrow">CAN de alta velocidad · ISO 11898-2 · tren motriz</p>
+    <h1>Tensión diferencial en el bus CAN</h1>
+    <p class="lede">En dominante, <span class="t-h">CAN-H</span> sube de 2,5 a 3,5 V y <span class="t-l">CAN-L</span> baja de 2,5 a 1,5 V: hay <b>2 V de diferencia</b>. En recesivo los dos están a 2,5 V y la diferencia es 0 V. El receptor solo mira esa <span class="t-d">resta</span>, por eso da igual que la <span class="t-bat">batería</span> marque 12,5 V o el alternador cargue a 14,5 V.</p>
+  </header>
+
+  <section class="lab" aria-label="Simulación">
+    <div class="lab-main">
+      <div class="scope">
+        <div class="scope-head">
+          <div class="legend">
+            <span class="lg-bat"><i></i>Batería</span>
+            <span class="lg-h"><i></i>CAN-H</span>
+            <span class="lg-l"><i></i>CAN-L</span>
+            <span class="lg-d"><i></i>H − L</span>
+            <span class="lg-s"><b>0 1</b> bit de relleno</span>
+          </div>
+          <span id="timenote">Cámara lenta: 5 bits/s (en el coche, 500 000)</span>
+        </div>
+        <canvas id="scope" aria-label="Osciloscopio con tres canales: tensión de batería, CAN-H y CAN-L, y la diferencia CAN-H menos CAN-L"></canvas>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="play" type="button" aria-pressed="false">
+          <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path id="play-ico" d="M4 3h3v10H4zM9 3h3v10H9z"/></svg>
+          <span id="play-txt">Pausa</span>
+        </button>
+        <div class="seg" role="radiogroup" aria-label="Estado del motor">
+          <input type="radio" name="engine" id="eng-off" value="off"><label for="eng-off">Motor parado</label>
+          <input type="radio" name="engine" id="eng-crank" value="crank"><label for="eng-crank">Arrancar</label>
+          <input type="radio" name="engine" id="eng-run" value="run" checked><label for="eng-run">En marcha</label>
+        </div>
+        <label class="switch" for="noise"><input type="checkbox" id="noise"><span>Interferencias</span></label>
+        <label class="speed" for="speed">Velocidad <input type="range" id="speed" min="2" max="16" step="1" value="5"><output id="speed-out" for="speed">5 bits/s</output></label>
+      </div>
+      <p class="hint">Pasa el ratón (o el dedo) por la pantalla para medir con el cursor. Barra espaciadora: pausa.</p>
+    </div>
+
+    <aside class="readouts" aria-label="Lecturas">
+      <div class="state" id="state" data-state="rec">
+        <span class="state-v" id="state-v">1</span>
+        <span class="state-k">Bit que lee el receptor</span>
+        <span class="state-n" id="state-n">Recesivo</span>
+      </div>
+      <dl>
+        <div class="row bat"><dt>Batería / alternador</dt><dd id="r-bat">14,10 V</dd></div>
+        <div class="row"><dt>Regulador de la ECU</dt><dd>5,00 V</dd></div>
+        <div class="row h"><dt>CAN-H</dt><dd id="r-h">2,50 V</dd></div>
+        <div class="row l"><dt>CAN-L</dt><dd id="r-l">2,50 V</dd></div>
+        <div class="row d"><dt>Diferencia H − L</dt><dd id="r-d">0,00 V</dd></div>
+        <div class="row"><dt>Tensión media (H + L) / 2</dt><dd id="r-cm">2,50 V</dd></div>
+      </dl>
+      <p class="frame" id="r-frame">Bus en reposo</p>
+    </aside>
+  </section>
+
+  <section class="block" aria-labelledby="h-esquema">
+    <h2 id="h-esquema">Del alternador al bit</h2>
+    <p>La batería no alimenta directamente al transceptor. Entre medias está el regulador de 5 V de la centralita, y el bit se decide al final con una resta.</p>
+    <div class="diagram-card">
+      <div class="svg-scroll">
+        <svg class="diagram" id="diagram" viewBox="0 0 960 232" role="img" aria-label="Esquema: batería y alternador alimentan el regulador de 5 V de la centralita; el transceptor genera CAN-H y CAN-L por un par trenzado con resistencias de 120 ohmios en cada extremo; el receptor resta CAN-H menos CAN-L y decide el bit.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-ah" d="M0 0L10 5L0 10z"/></marker>
+            <marker id="ahn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="d-zig" style="fill:var(--ch-bat);stroke:none" d="M0 0L10 5L0 10z"/></marker>
+          </defs>
+
+          <rect class="d-box" x="12" y="70" width="132" height="90" rx="10"/>
+          <text class="d-title" x="78" y="96" text-anchor="middle">Batería +</text>
+          <text class="d-title" x="78" y="113" text-anchor="middle">alternador</text>
+          <text class="d-val v-bat" id="sv-bat" x="78" y="144" text-anchor="middle">14,10 V</text>
+
+          <line class="d-arrow" x1="146" y1="115" x2="196" y2="115" marker-end="url(#ah)"/>
+          <text class="d-sub" x="170" y="106" text-anchor="middle">9–15 V</text>
+
+          <rect class="d-frame" x="182" y="36" width="318" height="158" rx="12"/>
+          <text class="d-sub" x="196" y="55">Centralita emisora</text>
+
+          <rect class="d-box" x="198" y="70" width="118" height="90" rx="10"/>
+          <text class="d-title" x="257" y="97" text-anchor="middle">Regulador</text>
+          <text class="d-sub" x="257" y="114" text-anchor="middle">salida fija</text>
+          <text class="d-val" x="257" y="144" text-anchor="middle">5,00 V</text>
+
+          <line class="d-arrow" x1="318" y1="115" x2="344" y2="115" marker-end="url(#ah)"/>
+
+          <rect class="d-box" x="346" y="70" width="124" height="90" rx="10"/>
+          <text class="d-title" x="402" y="97" text-anchor="middle">Transceptor</text>
+          <text class="d-sub" x="402" y="120" text-anchor="middle">reposo:</text>
+          <text class="d-sub" x="402" y="137" text-anchor="middle">5 V ÷ 2 = 2,5 V</text>
+          <text class="d-sub" x="463" y="94" text-anchor="end" style="font-weight:700">H</text>
+          <text class="d-sub" x="463" y="146" text-anchor="end" style="font-weight:700">L</text>
+
+          <!-- resistencias de terminación -->
+          <line class="d-lead" x1="488" y1="99" x2="488" y2="106"/>
+          <rect class="d-res" x="482" y="106" width="12" height="18" rx="2"/>
+          <line class="d-lead" x1="488" y1="124" x2="488" y2="131"/>
+          <line class="d-lead" x1="790" y1="99" x2="790" y2="106"/>
+          <rect class="d-res" x="784" y="106" width="12" height="18" rx="2"/>
+          <line class="d-lead" x1="790" y1="124" x2="790" y2="131"/>
+          <text class="d-sub" x="488" y="182" text-anchor="middle">120 Ω</text>
+          <text class="d-sub" x="790" y="182" text-anchor="middle">120 Ω</text>
+
+          <!-- par trenzado -->
+          <path class="w-l" id="wire-l" d=""/>
+          <path class="w-h" id="wire-h" d=""/>
+          <text class="d-val v-h" id="sv-h" x="638" y="70" text-anchor="middle" style="font-size:15px">CAN-H 2,50 V</text>
+          <text class="d-val v-l" id="sv-l" x="638" y="172" text-anchor="middle" style="font-size:15px">CAN-L 2,50 V</text>
+          <text class="d-sub" x="638" y="192" text-anchor="middle">par trenzado</text>
+
+          <g class="d-noise" aria-hidden="true">
+            <path class="d-zig" d="M716 214L728 196L719 193L732 170" marker-end="url(#ahn)"/>
+            <text class="d-sub" x="722" y="228" text-anchor="middle">entra igual en los dos</text>
+          </g>
+
+          <rect class="d-frame" x="772" y="36" width="176" height="158" rx="12"/>
+          <text class="d-sub" x="806" y="55">Centralita receptora</text>
+          <rect class="d-box" x="808" y="70" width="130" height="90" rx="10"/>
+          <text class="d-title" x="873" y="97" text-anchor="middle">Receptor</text>
+          <text class="d-sub" x="873" y="114" text-anchor="middle">CAN-H − CAN-L</text>
+          <text class="d-val v-d" id="sv-diff" x="873" y="144" text-anchor="middle">0,00 V</text>
+          <text class="d-title" id="sv-bit" x="860" y="216" text-anchor="middle">bit 1 · recesivo</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="h-claves">
+    <h2 id="h-claves">Lo que hay que ver en la animación</h2>
+    <div class="cards">
+      <article class="card">
+        <span class="tag">Bit 1</span>
+        <h3>Recesivo</h3>
+        <div class="pair"><span class="t-h">CAN-H 2,5 V</span><span class="t-l">CAN-L 2,5 V</span><span class="t-d">H − L = 0 V</span></div>
+        <p>Ningún transceptor empuja el bus. Las resistencias de terminación de 120 Ω dejan los dos cables a la misma tensión. Los 2 V de diferencia solo existen en dominante.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Bit 0</span>
+        <h3>Dominante</h3>
+        <div class="pair"><span class="t-h">CAN-H 3,5 V</span><span class="t-l">CAN-L 1,5 V</span><span class="t-d">H − L = 2 V</span></div>
+        <p>El transceptor que transmite sube CAN-H y baja CAN-L a la vez, en espejo respecto a 2,5 V. Si una centralita pone dominante y otra recesivo, gana el dominante. Así se resuelve el arbitraje.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Motor parado · arranque · en marcha</span>
+        <h3>La batería no entra en la cuenta</h3>
+        <p>El transceptor se alimenta de los 5 V del regulador de la centralita, y los 2,5 V de reposo son la mitad de esos 5 V. La batería puede caer a 9–10 V al arrancar o subir a 14,5 V con el alternador cargando: mientras el regulador mantenga 5 V, los niveles del bus no se mueven.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Interferencias</span>
+        <h3>El receptor resta</h3>
+        <p>El receptor no compara cada cable con masa: calcula CAN-H − CAN-L. Una interferencia del encendido, los inyectores o el motor de arranque se induce casi igual en los dos cables trenzados. Suben y bajan juntos, la tensión media se mueve, pero la resta no cambia.</p>
+        <p class="hint">Umbrales del receptor: por debajo de 0,5 V lee recesivo; por encima de 0,9 V, dominante.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="h-taller">
+    <h2 id="h-taller">Comprobaciones en el taller</h2>
+    <div class="specs">
+      <div class="spec">
+        <span class="spec-v">60 Ω</span>
+        <p>Entre CAN-H y CAN-L con la batería desconectada: las dos resistencias de 120 Ω en paralelo. Si mides 120 Ω, falta una terminación.</p>
+      </div>
+      <div class="spec">
+        <span class="spec-v"><span class="t-h">2,6–2,7</span> / <span class="t-l">2,3–2,4 V</span></span>
+        <p>Multímetro respecto a masa con el bus funcionando. Son valores medios: el bus pasa la mayor parte del tiempo en recesivo.</p>
+      </div>
+      <div class="spec">
+        <span class="spec-v">Espejo en 2,5 V</span>
+        <p>Osciloscopio de dos canales con la misma masa: CAN-H y CAN-L deben verse simétricas, una hacia arriba y otra hacia abajo.</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">Animación a cámara lenta: en un CAN de tren motriz a 500 kbit/s cada bit dura 2 µs. Las tramas son de ejemplo, con el formato real (SOF, identificador de 11 bits, control, datos, CRC, ACK, EOF y bits de relleno cada cinco bits iguales). El CAN de confort de baja velocidad (ISO 11898-3) usa otros niveles: en recesivo CAN-H ≈ 0 V y CAN-L ≈ 5 V.</p>
+</div>
+
+<script>
+(() => {
+  // ---------- parámetros ----------
+  const SPB = 32;               // muestras por bit
+  const MAXBITS = 46;           // bits máximos en pantalla
+  const CAP = 48 * SPB;         // buffer circular de muestras
+  const BITCAP = 64;            // buffer circular de bits
+  const SC = { bg:'#0a1115', panel:'#0d171c', grid:'rgba(150,185,198,0.10)', edge:'rgba(150,185,198,0.20)',
+               text:'#8ea3ad', bright:'#d6e4ea', h:'#f5c542', l:'#4fd69c', d:'#f07bd0', bat:'#ff8a5c', stuff:'#7fb7ff' };
+  const MONO = '"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace';
+
+  const batA = new Float32Array(CAP), hA = new Float32Array(CAP), lA = new Float32Array(CAP);
+  const bitB = new Uint8Array(BITCAP), bitF = new Uint8Array(BITCAP), bitS = new Uint8Array(BITCAP), bitId = new Int16Array(BITCAP);
+
+  const F = { IDLE:0, SOF:1, ID:2, RTR:3, CTRL:4, DATA:5, CRC:6, ACK:7, EOF:8 };
+  const FLONG  = ['reposo','SOF','IDENTIFICADOR','RTR','CONTROL','DATOS','CRC','ACK','EOF'];
+  const FSHORT = ['reposo','SOF','ID','RTR','CTRL','DATOS','CRC','ACK','EOF'];
+  const IDS = [0x0C9, 0x1A0, 0x280, 0x3D0, 0x4A8, 0x5A0];
+
+  let S = 0, simT = 0, bitRate = 5, curBit = 1, hC = 2.5, lC = 2.5, recv = 1;
+  let noiseOn = false, noiseLvl = 0, spikeAmp = 0, spikeAge = 1e9;
+  let engine = 'run', crankStart = 0, vbatF = 14.1, loadT0 = -99, nextLoad = 4, pendingRun = false;
+
+  // ---------- tramas CAN de ejemplo ----------
+  const bitsOf = (v, n) => { const a = []; for (let i = n - 1; i >= 0; i--) a.push((v >> i) & 1); return a; };
+  function crc15(bits) {
+    let crc = 0;
+    for (const b of bits) { const nx = b ^ ((crc >> 14) & 1); crc = (crc << 1) & 0x7FFF; if (nx) crc ^= 0x4599; }
+    return crc;
+  }
+  function buildFrame(id, data) {
+    const raw = [];
+    const add = (arr, f) => arr.forEach(b => raw.push({ b, f }));
+    add([0], F.SOF); add(bitsOf(id, 11), F.ID); add([0], F.RTR); add([0, 0], F.CTRL); add(bitsOf(data.length, 4), F.CTRL);
+    data.forEach(d => add(bitsOf(d, 8), F.DATA));
+    add(bitsOf(crc15(raw.map(x => x.b)), 15), F.CRC);
+    const out = []; let last = -1, run = 0;
+    for (const x of raw) {
+      out.push({ b:x.b, f:x.f, s:0, id });
+      if (x.b === last) run++; else { last = x.b; run = 1; }
+      if (run === 5) { const sb = 1 - last; out.push({ b:sb, f:x.f, s:1, id }); last = sb; run = 1; }
+    }
+    out.push({ b:1, f:F.CRC, s:0, id });                       // delimitador CRC
+    out.push({ b:0, f:F.ACK, s:0, id }, { b:1, f:F.ACK, s:0, id }); // hueco ACK + delimitador
+    for (let i = 0; i < 7; i++) out.push({ b:1, f:F.EOF, s:0, id });
+    for (let i = 0; i < 3; i++) out.push({ b:1, f:F.IDLE, s:0, id:-1 }); // intermisión
+    return out;
+  }
+  const queue = [];
+  function refill() {
+    const idle = 2 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < idle; i++) queue.push({ b:1, f:F.IDLE, s:0, id:-1 });
+    const id = IDS[Math.floor(Math.random() * IDS.length)];
+    const n = 1 + Math.floor(Math.random() * 2), data = [];
+    for (let i = 0; i < n; i++) data.push(Math.floor(Math.random() * 256));
+    for (const x of buildFrame(id, data)) queue.push(x);
+  }
+  function nextBit() { if (!queue.length) refill(); return queue.shift(); }
+
+  // ---------- batería / alternador ----------
+  function batTarget(t) {
+    if (engine === 'off') return 12.55 + 0.03 * Math.sin(t * 0.8);
+    if (engine === 'crank') {
+      const e = t - crankStart;
+      if (e < 0.07) return 8.8;
+      if (e < 1.35) return 9.8 + 0.35 * (e / 1.35) + 0.45 * Math.sin(2 * Math.PI * 4.2 * e);
+      if (e < 1.75) return 14.7;
+      engine = 'run'; pendingRun = true; nextLoad = t + 3;
+    }
+    let v = 14.15 + 0.18 * Math.sin(2 * Math.PI * 0.13 * t) + 0.09 * Math.sin(2 * Math.PI * 0.41 * t + 1.3);
+    if (t > nextLoad) { loadT0 = t; nextLoad = t + 5 + Math.random() * 5; }
+    const e2 = t - loadT0;
+    if (e2 >= 0 && e2 < 4) v -= 0.75 * Math.exp(-e2 / 0.7);  // entra un consumidor y el regulador del alternador recupera
+    return v;
+  }
+
+  // ---------- una muestra de simulación ----------
+  function stepSample() {
+    const k = S;
+    if (k % SPB === 0) {
+      const nb = nextBit(), s = (k / SPB) % BITCAP;
+      bitB[s] = nb.b; bitF[s] = nb.f; bitS[s] = nb.s; bitId[s] = nb.id; curBit = nb.b;
+    }
+    const dtS = 1 / (bitRate * SPB);
+    simT += dtS;
+
+    const tgt = batTarget(simT);
+    const tau = tgt < vbatF ? 0.03 : 0.15;
+    vbatF += (tgt - vbatF) * (1 - Math.exp(-dtS / tau));
+    let vb = vbatF + (engine === 'run' ? 0.06 * Math.sin(2 * Math.PI * 6.3 * simT) : 0);
+
+    noiseLvl += ((noiseOn ? 1 : 0) - noiseLvl) * (1 - Math.exp(-dtS / 0.25));
+    let cm = 0, spk = 0;
+    if (noiseLvl > 0.002) {
+      const u = k / SPB;
+      if (Math.random() < 1 / (4.5 * SPB)) { spikeAmp = (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.4); spikeAge = 0; }
+      spk = spikeAge < 8 * SPB ? spikeAmp * Math.exp(-spikeAge / (0.3 * SPB)) * Math.cos(2 * Math.PI * spikeAge / (0.22 * SPB)) : 0;
+      spikeAge++;
+      cm = noiseLvl * (0.4 * Math.sin(2 * Math.PI * u / 4.7) + 0.15 * Math.sin(2 * Math.PI * u / 1.9 + 0.7) + spk + (Math.random() - 0.5) * 0.08);
+      vb += noiseLvl * spk * 0.9;
+    }
+
+    const tH = curBit ? 2.5 : 3.5, tL = curBit ? 2.5 : 1.5;
+    const a = 1 - Math.exp(-1 / ((curBit ? 0.11 : 0.05) * SPB)); // flanco recesivo más lento: lo marca la terminación
+    hC += (tH - hC) * a; lC += (tL - lC) * a;
+    const dn = (Math.random() - 0.5) * 0.02 + noiseLvl * 0.03 * spk;
+    const h = hC + cm + dn / 2, l = lC + cm - dn / 2;
+
+    const i = k % CAP;
+    batA[i] = vb; hA[i] = h; lA[i] = l;
+    const d = h - l;
+    if (d > 0.9) recv = 0; else if (d < 0.5) recv = 1;
+    S++;
+  }
+
+  // ---------- canvas ----------
+  const cv = document.getElementById('scope');
+  const ctx = cv.getContext('2d');
+  let CW = 0, CH = 0, Lb, Lc, Ld, strip, plotX, plotW, bitsVisible, pps;
+  let hoverX = null;
+
+  function layout() {
+    const gl = 44, gr = 10, top = 8, bottom = 8, stripH = 34, gap = 14;
+    plotX = gl; plotW = Math.max(100, CW - gl - gr);
+    const avail = CH - top - bottom - stripH - gap * 2;
+    const hb = avail * 0.27, hc = avail * 0.42, hd = avail - hb - hc;
+    Lb = { x:plotX, y:top, w:plotW, h:hb, min:8, max:16, step:2 };
+    strip = { y: Lb.y + hb + gap, h: stripH };
+    Lc = { x:plotX, y: strip.y + stripH, w:plotW, h:hc, min:-1, max:5, step:1 };
+    Ld = { x:plotX, y: Lc.y + hc + gap, w:plotW, h:hd, min:-1, max:3, step:1 };
+    bitsVisible = Math.max(10, Math.min(44, Math.round(plotW / 30)));
+    pps = plotW / (bitsVisible * SPB);
+  }
+  let lastW = -1;
+  function resize() {
+    const w = Math.floor(cv.parentElement.clientWidth - 20);
+    if (w === lastW || w <= 0) return;
+    lastW = w;
+    CW = w; CH = Math.round(Math.max(360, Math.min(470, CW * 0.6)));
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(CW * dpr); cv.height = Math.round(CH * dpr);
+    cv.style.height = CH + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    layout(); draw();
+  }
+
+  const yOf = (p, v) => p.y + p.h - (v - p.min) / (p.max - p.min) * p.h;
+  const fmt = (v, dec = 2) => { if (Math.abs(v) < 0.005) v = 0; return v.toFixed(dec).replace('.', ','); };
+  const fmtV = v => fmt(v) + ' V';
+
+  function panel(p, labels) {
+    ctx.fillStyle = SC.panel; ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.strokeStyle = SC.grid; ctx.lineWidth = 1;
+    for (let v = p.min; v <= p.max + 1e-9; v += p.step) {
+      const y = Math.round(yOf(p, v)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(p.x, y); ctx.lineTo(p.x + p.w, y); ctx.stroke();
+    }
+    ctx.font = '11px ' + MONO; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (const [v, txt, col] of labels) { ctx.fillStyle = col || SC.text; ctx.fillText(txt, p.x - 6, yOf(p, v)); }
+  }
+  function title(p, parts) {
+    ctx.font = '600 11px ' + MONO; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    let w = 0; for (const [t] of parts) w += ctx.measureText(t).width;
+    ctx.fillStyle = 'rgba(10,17,21,0.82)'; ctx.fillRect(p.x + 4, p.y + 4, w + 12, 17);
+    let x = p.x + 10;
+    for (const [t, c] of parts) { ctx.fillStyle = c; ctx.fillText(t, x, p.y + 13); x += ctx.measureText(t).width; }
+  }
+  function refLine(p, v, col, dash) {
+    const y = Math.round(yOf(p, v)) + 0.5;
+    ctx.save(); ctx.strokeStyle = col; ctx.setLineDash(dash); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(p.x, y); ctx.lineTo(p.x + p.w, y); ctx.stroke(); ctx.restore();
+  }
+  function trace(p, k0, xOf, get, col) {
+    ctx.save(); ctx.beginPath(); ctx.rect(p.x, p.y, p.w, p.h); ctx.clip();
+    ctx.beginPath();
+    for (let k = k0; k < S; k++) {
+      const x = xOf(k), y = yOf(p, get(k % CAP));
+      if (k === k0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.lineJoin = 'round'; ctx.strokeStyle = col;
+    ctx.globalAlpha = 0.2; ctx.lineWidth = 5; ctx.stroke();
+    ctx.globalAlpha = 1; ctx.lineWidth = 1.8; ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw() {
+    if (!CW) return;
+    ctx.fillStyle = SC.bg; ctx.fillRect(0, 0, CW, CH);
+    const right = plotX + plotW;
+    const vis = bitsVisible * SPB;
+    const k0 = Math.max(0, S - vis);
+    const xOf = k => right - (S - 1 - k) * pps;
+
+    panel(Lb, [[8,'8'],[10,'10'],[12,'12'],[14,'14'],[16,'16']]);
+    panel(Lc, [[0,'0'],[1.5,'1,5',SC.l],[2.5,'2,5',SC.bright],[3.5,'3,5',SC.h],[5,'5']]);
+    panel(Ld, [[0,'0'],[1,'1'],[2,'2',SC.d],[3,'3']]);
+
+    // líneas de bit
+    const jS = Math.floor(k0 / SPB), jE = Math.floor((S - 1) / SPB);
+    ctx.strokeStyle = 'rgba(150,185,198,0.07)'; ctx.lineWidth = 1;
+    for (let j = jS; j <= jE + 1; j++) {
+      const x = Math.round(xOf(j * SPB)) + 0.5;
+      if (x < plotX || x > right) continue;
+      for (const p of [Lb, Lc, Ld]) { ctx.beginPath(); ctx.moveTo(x, p.y); ctx.lineTo(x, p.y + p.h); ctx.stroke(); }
+    }
+
+    // franja de bits y campos
+    ctx.save(); ctx.beginPath(); ctx.rect(plotX, strip.y, plotW, strip.h); ctx.clip();
+    let runStart = jS, runKey = null;
+    const flushRun = (ja, jb) => {
+      const s = ja % BITCAP;
+      const x0 = Math.max(plotX, xOf(ja * SPB)), x1 = Math.min(right, xOf((jb + 1) * SPB));
+      const w = x1 - x0; if (w < 10) return;
+      const f = bitF[s];
+      ctx.strokeStyle = 'rgba(150,185,198,0.35)'; ctx.lineWidth = 1;
+      const yb = strip.y + 15.5;
+      ctx.beginPath(); ctx.moveTo(x0 + 3, yb - 3); ctx.lineTo(x0 + 3, yb); ctx.lineTo(x1 - 3, yb); ctx.lineTo(x1 - 3, yb - 3); ctx.stroke();
+      ctx.font = '10px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      let label = FLONG[f];
+      if (f === F.ID && bitId[s] >= 0) label = 'ID 0x' + bitId[s].toString(16).toUpperCase().padStart(3, '0');
+      if (ctx.measureText(label).width + 8 > w) label = FSHORT[f];
+      if (ctx.measureText(label).width + 6 <= w) {
+        ctx.fillStyle = f === F.IDLE ? SC.text : SC.bright;
+        ctx.fillText(label, (x0 + x1) / 2, strip.y + 7);
+      }
+    };
+    for (let j = jS; j <= jE; j++) {
+      const s = j % BITCAP, key = bitF[s] + '|' + bitId[s];
+      if (key !== runKey) { if (runKey !== null) flushRun(runStart, j - 1); runKey = key; runStart = j; }
+    }
+    if (runKey !== null) flushRun(runStart, jE);
+    ctx.font = '600 12px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let j = jS; j <= jE; j++) {
+      const s = j % BITCAP;
+      const x0 = Math.max(plotX, xOf(j * SPB)), x1 = Math.min(right, xOf((j + 1) * SPB));
+      if (x1 - x0 < 7) continue;
+      ctx.fillStyle = bitS[s] ? SC.stuff : (bitB[s] ? SC.text : SC.bright);
+      ctx.fillText(String(bitB[s]), (x0 + x1) / 2, strip.y + 26);
+    }
+    ctx.restore();
+
+    // referencias
+    refLine(Lc, 2.5, 'rgba(214,228,234,0.35)', [5, 4]);
+    refLine(Lc, 3.5, 'rgba(245,197,66,0.30)', [2, 4]);
+    refLine(Lc, 1.5, 'rgba(79,214,156,0.30)', [2, 4]);
+    const y09 = yOf(Ld, 0.9), y05 = yOf(Ld, 0.5);
+    ctx.fillStyle = 'rgba(240,123,208,0.08)'; ctx.fillRect(Ld.x, y09, Ld.w, y05 - y09);
+    refLine(Ld, 0.9, 'rgba(240,123,208,0.45)', [4, 3]);
+    refLine(Ld, 0.5, 'rgba(240,123,208,0.45)', [4, 3]);
+
+    // trazas
+    trace(Lb, k0, xOf, i => batA[i], SC.bat);
+    trace(Lc, k0, xOf, i => lA[i], SC.l);
+    trace(Lc, k0, xOf, i => hA[i], SC.h);
+    trace(Ld, k0, xOf, i => hA[i] - lA[i], SC.d);
+
+    // rótulos
+    title(Lb, [['BATERÍA / ALTERNADOR', SC.bat], ['  2 V/div', SC.text]]);
+    title(Lc, [['CAN-H', SC.h], ['  ', SC.text], ['CAN-L', SC.l], ['  1 V/div', SC.text]]);
+    title(Ld, [['CAN-H − CAN-L', SC.d], ['  lo que lee el receptor', SC.text]]);
+    ctx.font = '10px ' + MONO; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(240,123,208,0.85)';
+    if (plotW > 380) {
+      ctx.fillText('0,9 V: por encima, dominante', right - 6, y09 - 2);
+      ctx.textBaseline = 'top'; ctx.fillText('0,5 V: por debajo, recesivo', right - 6, y05 + 2);
+    }
+
+    // cursor
+    if (hoverX !== null && hoverX >= plotX && hoverX <= right) {
+      const k = Math.round(S - 1 - (right - hoverX) / pps);
+      if (k >= k0 && k < S) {
+        const x = Math.round(xOf(k)) + 0.5, i = k % CAP;
+        ctx.save(); ctx.strokeStyle = 'rgba(214,228,234,0.55)'; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(x, Lb.y); ctx.lineTo(x, Ld.y + Ld.h); ctx.stroke(); ctx.restore();
+        const rows = [['Batería', batA[i], SC.bat, Lb], ['CAN-H', hA[i], SC.h, Lc], ['CAN-L', lA[i], SC.l, Lc], ['H − L', hA[i] - lA[i], SC.d, Ld]];
+        for (const [, v, c, p] of rows) {
+          const y = Math.max(p.y, Math.min(p.y + p.h, yOf(p, v)));
+          ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+        }
+        const bw = 150, bh = 4 * 17 + 30;
+        let bx = x + 12; if (bx + bw > right) bx = x - 12 - bw;
+        const by = Lb.y + 2;
+        ctx.fillStyle = 'rgba(8,14,18,0.94)'; ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeStyle = SC.edge; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+        ctx.font = '11px ' + MONO; ctx.textBaseline = 'middle';
+        rows.forEach(([n, v, c], r) => {
+          const y = by + 14 + r * 17;
+          ctx.textAlign = 'left'; ctx.fillStyle = SC.text; ctx.fillText(n, bx + 10, y);
+          ctx.textAlign = 'right'; ctx.fillStyle = c; ctx.fillText(fmtV(v), bx + bw - 10, y);
+        });
+        const s = Math.floor(k / SPB) % BITCAP;
+        ctx.textAlign = 'left'; ctx.fillStyle = SC.bright;
+        ctx.fillText('bit ' + bitB[s] + (bitB[s] ? ' · recesivo' : ' · dominante') + (bitS[s] ? ' (relleno)' : ''), bx + 10, by + 14 + 4 * 17 + 4);
+      }
+    }
+    ctx.strokeStyle = SC.edge; ctx.lineWidth = 1;
+    for (const p of [Lb, Lc, Ld]) ctx.strokeRect(p.x + 0.5, p.y + 0.5, p.w - 1, p.h - 1);
+  }
+
+  // ---------- interfaz ----------
+  const $ = id => document.getElementById(id);
+  const rBat = $('r-bat'), rH = $('r-h'), rL = $('r-l'), rD = $('r-d'), rCm = $('r-cm'), rFrame = $('r-frame');
+  const stateEl = $('state'), stateV = $('state-v'), stateN = $('state-n');
+  const diagram = $('diagram'), svBat = $('sv-bat'), svH = $('sv-h'), svL = $('sv-l'), svDiff = $('sv-diff'), svBit = $('sv-bit');
+  const playBtn = $('play'), playIco = $('play-ico'), playTxt = $('play-txt');
+
+  // par trenzado del esquema
+  function twist(x0, x1, c, A, periods, sign) {
+    let d = ''; const n = 160;
+    for (let i = 0; i <= n; i++) {
+      const x = x0 + (x1 - x0) * i / n, th = Math.PI / 2 + 2 * Math.PI * periods * i / n;
+      d += (i ? 'L' : 'M') + x.toFixed(1) + ' ' + (c - sign * A * Math.sin(th)).toFixed(1);
+    }
+    return d;
+  }
+  $('wire-h').setAttribute('d', 'M470 99L520 99' + twist(520, 744, 115, 16, 6, 1).replace('M', 'L') + 'L808 99');
+  $('wire-l').setAttribute('d', 'M470 131L520 131' + twist(520, 744, 115, 16, 6, -1).replace('M', 'L') + 'L808 131');
+
+  function updateUI() {
+    const i = (S - 1) % CAP, b = batA[i], h = hA[i], l = lA[i], d = h - l;
+    rBat.textContent = fmtV(b); rH.textContent = fmtV(h); rL.textContent = fmtV(l);
+    rD.textContent = fmtV(d); rCm.textContent = fmtV((h + l) / 2);
+    const dom = recv === 0;
+    stateEl.dataset.state = dom ? 'dom' : 'rec';
+    stateV.textContent = dom ? '0' : '1';
+    stateN.textContent = dom ? 'Dominante' : 'Recesivo';
+    diagram.classList.toggle('dom', dom);
+    diagram.classList.toggle('noise', noiseOn);
+    svBat.textContent = fmtV(b);
+    svH.textContent = 'CAN-H ' + fmtV(h); svL.textContent = 'CAN-L ' + fmtV(l);
+    svDiff.textContent = fmtV(d);
+    svBit.textContent = dom ? 'bit 0 · dominante' : 'bit 1 · recesivo';
+    const s = Math.floor((S - 1) / SPB) % BITCAP;
+    rFrame.textContent = bitId[s] >= 0
+      ? 'Trama ID 0x' + bitId[s].toString(16).toUpperCase().padStart(3, '0') + ' · campo ' + FLONG[bitF[s]]
+      : 'Bus en reposo (recesivo)';
+    if (pendingRun) { $('eng-run').checked = true; pendingRun = false; }
+  }
+
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let playing = !reduce;
+  function setPlaying(p) {
+    playing = p;
+    playIco.setAttribute('d', p ? 'M4 3h3v10H4zM9 3h3v10H9z' : 'M4 2.5v11l9-5.5z');
+    playTxt.textContent = p ? 'Pausa' : 'Reanudar';
+    playBtn.setAttribute('aria-pressed', p ? 'false' : 'true');
+  }
+  playBtn.addEventListener('click', () => setPlaying(!playing));
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && (e.target === document.body || e.target === cv)) { e.preventDefault(); setPlaying(!playing); }
+  });
+  document.querySelectorAll('input[name="engine"]').forEach(r => r.addEventListener('change', () => {
+    if (!r.checked) return;
+    if (r.value === 'crank') { engine = 'crank'; crankStart = simT; }
+    else { engine = r.value; if (engine === 'run') nextLoad = simT + 3; }
+    setPlaying(true);
+  }));
+  $('noise').addEventListener('change', e => { noiseOn = e.target.checked; setPlaying(true); updateUI(); });
+  const speed = $('speed'), speedOut = $('speed-out'), timenote = $('timenote');
+  speed.addEventListener('input', () => {
+    bitRate = +speed.value;
+    speedOut.textContent = bitRate + ' bits/s';
+    timenote.textContent = 'Cámara lenta: ' + bitRate + ' bits/s (en el coche, 500 000)';
+  });
+  const setHover = e => { const r = cv.getBoundingClientRect(); hoverX = e.clientX - r.left; };
+  cv.addEventListener('pointermove', setHover);
+  cv.addEventListener('pointerdown', setHover);
+  cv.addEventListener('pointerleave', () => { hoverX = null; });
+
+  // ---------- arranque ----------
+  for (let i = 0; i < MAXBITS * SPB; i++) stepSample();
+  setPlaying(playing);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(cv.parentElement);
+  window.addEventListener('resize', resize);
+  resize(); updateUI();
+
+  let last = performance.now(), acc = 0, lastUI = 0;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (playing) {
+      acc += dt * bitRate * SPB;
+      let n = Math.floor(acc); acc -= n;
+      while (n-- > 0) stepSample();
+    }
+    draw();
+    if (now - lastUI > 90) { updateUI(); lastUI = now; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+<script src="../../config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/seguimiento.js" data-sim="can"></script>
+<script src="test.js"></script>
+
+</body></html>

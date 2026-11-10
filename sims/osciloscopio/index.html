@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de osciloscopio · Sensores del automóvil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e7eae6; --surface:#ffffff; --surface2:#f2f4f1; --text:#1a1e21; --muted:#56606a; --border:#cfd5d0;
+  --accent:#d9480f; --accent-soft:#fde7dc; --ok:#1d7a3e; --warn:#a85d00; --bad:#b42318;
+  --chip1:#e8b500; --chip2:#1aa7cf; --chipg:#2b2f33;
+  --dev:#2b2f33; --dev2:#353a3f; --dev-text:#e9ecee; --dev-muted:#9ea7b0; --dev-border:#4b5259;
+  --key:#464c53; --key-text:#f2f4f5; --key-on:#f2b705; --key-on-text:#1a1e21; --lcd:#0d1a14; --lcd-text:#cdf3dc;
+  --ch1:#ffd23f; --ch2:#3fd0ff;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15181a; --surface:#1e2225; --surface2:#262b2f; --text:#e7eaec; --muted:#a2abb3; --border:#343a3f;
+    --accent:#ff7a3d; --accent-soft:#3a2418; --ok:#5fd38a; --warn:#f2b45a; --bad:#ff7b6e;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15181a; --surface:#1e2225; --surface2:#262b2f; --text:#e7eaec; --muted:#a2abb3; --border:#343a3f;
+  --accent:#ff7a3d; --accent-soft:#3a2418; --ok:#5fd38a; --warn:#f2b45a; --bad:#ff7b6e;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.45}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header{max-width:1480px;margin:0 auto;padding:16px 16px 10px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:1.45rem;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+h1 span{display:block;font-size:.95rem;font-weight:400;color:var(--muted);letter-spacing:0}
+.start{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;font-size:.95rem;cursor:pointer}
+.layout{max-width:1480px;margin:0 auto;padding:0 12px 28px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+@media (min-width:1120px){.layout{grid-template-columns:minmax(0,1.6fr) minmax(330px,1fr);align-items:start}}
+
+/* Instrumento */
+.device{background:var(--dev);color:var(--dev-text);border-radius:14px;padding:12px;border:1px solid var(--dev-border);box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.brand{display:flex;justify-content:space-between;align-items:center;font-family:'Barlow Semi Condensed',sans-serif;font-weight:600;color:var(--dev-muted);font-size:.85rem;padding:0 4px 8px}
+.brand b{color:var(--dev-text);font-size:1rem}
+.screen-wrap{background:#000;border-radius:8px;padding:6px;border:2px solid #15181b}
+canvas{display:block;touch-action:pan-y}
+.curhint{font-size:.8rem;color:var(--dev-muted);padding:6px 4px 0;min-height:1.2em}
+.meas{margin-top:8px;background:var(--lcd);border:1px solid var(--dev-border);border-radius:8px;padding:8px 10px;color:var(--lcd-text);font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.82rem}
+.meas-h{display:flex;align-items:center;gap:8px;font-family:'Barlow Semi Condensed',sans-serif;font-weight:600;color:var(--dev-muted);margin-bottom:4px}
+.mgrid{display:grid;grid-template-columns:minmax(110px,1.2fr) 1fr 1fr;gap:1px 10px}
+.mgrid .h1{color:var(--ch1)} .mgrid .h2{color:var(--ch2)}
+.mgrid span:nth-child(3n+1){color:var(--dev-muted)}
+.cur{margin-top:6px;padding-top:6px;border-top:1px dashed var(--dev-border);display:flex;flex-wrap:wrap;gap:4px 16px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:10px;margin-top:10px}
+.pnl{background:var(--dev2);border:1px solid var(--dev-border);border-radius:10px;padding:10px}
+.pnl.c1{border-top:3px solid var(--ch1)} .pnl.c2{border-top:3px solid var(--ch2)}
+.pnl-h{display:flex;align-items:center;gap:8px;font-family:'Barlow Semi Condensed',sans-serif;font-weight:600;font-size:.95rem;margin-bottom:6px}
+.pnl-h .sp{flex:1}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0}
+.lbl{display:flex;align-items:center;gap:6px;font-size:.88rem}
+.step{display:flex;align-items:center;gap:4px}
+.step output{min-width:84px;text-align:center;background:var(--lcd);color:var(--lcd-text);border-radius:6px;padding:7px 4px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.85rem}
+.k,.seg button{background:var(--key);color:var(--key-text);border:1px solid var(--dev-border);min-width:36px;height:34px;border-radius:7px;font-weight:600;font-size:.9rem;cursor:pointer;padding:0 8px}
+.k:active,.seg button:active{transform:translateY(1px)}
+.seg{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end}
+.seg button.on,.k.on{background:var(--key-on);color:var(--key-on-text);border-color:var(--key-on)}
+.chbtn{min-width:54px}
+.chbtn.on.c1b{background:var(--ch1);border-color:var(--ch1);color:#1a1e21}
+.chbtn.on.c2b{background:var(--ch2);border-color:var(--ch2);color:#1a1e21}
+.big{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.big .k{height:42px;font-size:.95rem}
+#runstop.run{background:#2f9e44;border-color:#2f9e44;color:#fff}
+#runstop.stop{background:#c92a2a;border-color:#c92a2a;color:#fff}
+.chk{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--dev-text);margin-top:8px}
+.i{flex:none;width:21px;height:21px;border-radius:50%;border:1.5px solid currentColor;background:transparent;color:inherit;font:italic 700 12px/1 Georgia,'Times New Roman',serif;cursor:pointer;opacity:.75;padding:0;display:inline-grid;place-items:center}
+.i:hover{opacity:1}
+
+/* Banco */
+.bench{display:grid;gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.card h2{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:1.05rem;font-weight:700}
+select{width:100%;font:inherit;padding:9px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.desc{color:var(--muted);font-size:.9rem;margin:8px 0 12px}
+.tools{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tool{display:flex;align-items:center;gap:7px;border:2px solid var(--border);background:var(--surface2);color:var(--text);border-radius:999px;padding:6px 12px 6px 8px;font-weight:600;font-size:.88rem;cursor:pointer}
+.tool.on{border-color:var(--accent);background:var(--accent-soft)}
+.tool.plain{padding:6px 12px;font-weight:500}
+.dot{width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(0,0,0,.35);flex:none}
+.conn-t{font-size:.8rem;color:var(--muted);margin:10px 0 6px;font-weight:600}
+.pins{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:7px}
+.pin{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:10px;cursor:pointer;min-height:64px}
+.pin:hover{border-color:var(--accent)}
+.pin .top{display:flex;align-items:center;gap:7px;font-weight:700;font-size:.92rem}
+.pin .wn{font-size:.78rem;color:var(--muted)}
+.tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
+.tag{font-size:.72rem;font-weight:700;border-radius:4px;padding:1px 6px}
+.tag.t1{background:var(--chip1);color:#1a1e21}.tag.t2{background:var(--chip2);color:#1a1e21}.tag.tg{background:var(--chipg);color:#fff}
+.toolhint{font-size:.85rem;color:var(--muted);margin:10px 0 0}
+.sl{margin:10px 0}
+.sl label{display:flex;justify-content:space-between;font-size:.9rem;font-weight:600}
+.sl output{font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:400;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent);margin:6px 0 0}
+.knock{margin-top:6px;width:100%;background:var(--surface2);border:2px dashed var(--accent);color:var(--text);border-radius:8px;padding:9px;font-weight:700;cursor:pointer}
+.eval{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.eval li{display:flex;gap:8px;font-size:.92rem;line-height:1.35}
+.eval li::before{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:.75rem;font-weight:800;color:#fff}
+.eval li.ok::before{content:'✓';background:var(--ok)}
+.eval li.warn::before{content:'!';background:var(--warn)}
+.eval li.bad::before{content:'✕';background:var(--bad)}
+details{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
+summary{cursor:pointer;font-weight:600}
+details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
+
+dialog{border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text);max-width:560px;width:calc(100% - 28px);padding:0}
+dialog::backdrop{background:rgba(10,12,14,.55)}
+.dlg{padding:18px 20px}
+.dlg h3{margin:0 0 8px;font-size:1.2rem}
+.dlg p,.dlg li{font-size:.95rem;line-height:1.5}
+.dlg ol{padding-left:20px}
+.dlg .close{float:right;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--surface);padding:10px 16px;border-radius:8px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Osciloscopio de taller<span>Simulador para medir sensores y actuadores del motor</span></h1>
+  <button class="start" data-info="inicio">Cómo empezar</button>
+</header>
+
+<main class="layout">
+  <section class="device" aria-label="Osciloscopio">
+    <div class="brand"><b>OSC-2CH</b><span>2 canales · 100 MHz <button class="i" data-info="pantalla" aria-label="Información de la pantalla">i</button></span></div>
+    <div class="screen-wrap" id="screenWrap"><canvas id="scr" aria-label="Pantalla del osciloscopio"></canvas></div>
+    <div class="curhint" id="curhint"></div>
+    <div class="meas">
+      <div class="meas-h">Medidas automáticas <button class="i" data-info="medidas" aria-label="Información de medidas">i</button></div>
+      <div id="measBody"></div>
+    </div>
+
+    <div class="panels">
+      <div class="pnl c1">
+        <div class="pnl-h"><button class="k chbtn c1b" data-act="chon" data-ch="0">CH1</button><span class="sp">Vertical</span><button class="i" data-info="canal" aria-label="Información del canal">i</button></div>
+        <div class="row"><span class="lbl">V/div <button class="i" data-info="vdiv">i</button></span><div class="step"><button class="k" data-act="vdiv" data-ch="0" data-d="-1">−</button><output id="vd0"></output><button class="k" data-act="vdiv" data-ch="0" data-d="1">+</button></div></div>
+        <div class="row"><span class="lbl">Posición <button class="i" data-info="vpos">i</button></span><div class="step"><button class="k" data-act="vpos" data-ch="0" data-d="-1">▼</button><output id="vp0"></output><button class="k" data-act="vpos" data-ch="0" data-d="1">▲</button><button class="k" data-act="vpos0" data-ch="0">0</button></div></div>
+        <div class="row"><span class="lbl">Acoplamiento <button class="i" data-info="acople">i</button></span><div class="seg" data-seg="coupling" data-ch="0"><button data-v="DC">DC</button><button data-v="AC">AC</button><button data-v="GND">GND</button></div></div>
+        <div class="row"><span class="lbl">Sonda <button class="i" data-info="sonda">i</button></span><div class="seg" data-seg="probe" data-ch="0"><button data-v="1">×1</button><button data-v="10">×10</button></div></div>
+        <div class="row"><span class="lbl">Invertir <button class="i" data-info="invertir">i</button></span><div class="seg" data-seg="inv" data-ch="0"><button data-v="0">No</button><button data-v="1">Sí</button></div></div>
+      </div>
+
+      <div class="pnl c2">
+        <div class="pnl-h"><button class="k chbtn c2b" data-act="chon" data-ch="1">CH2</button><span class="sp">Vertical</span><button class="i" data-info="canal">i</button></div>
+        <div class="row"><span class="lbl">V/div <button class="i" data-info="vdiv">i</button></span><div class="step"><button class="k" data-act="vdiv" data-ch="1" data-d="-1">−</button><output id="vd1"></output><button class="k" data-act="vdiv" data-ch="1" data-d="1">+</button></div></div>
+        <div class="row"><span class="lbl">Posición <button class="i" data-info="vpos">i</button></span><div class="step"><button class="k" data-act="vpos" data-ch="1" data-d="-1">▼</button><output id="vp1"></output><button class="k" data-act="vpos" data-ch="1" data-d="1">▲</button><button class="k" data-act="vpos0" data-ch="1">0</button></div></div>
+        <div class="row"><span class="lbl">Acoplamiento <button class="i" data-info="acople">i</button></span><div class="seg" data-seg="coupling" data-ch="1"><button data-v="DC">DC</button><button data-v="AC">AC</button><button data-v="GND">GND</button></div></div>
+        <div class="row"><span class="lbl">Sonda <button class="i" data-info="sonda">i</button></span><div class="seg" data-seg="probe" data-ch="1"><button data-v="1">×1</button><button data-v="10">×10</button></div></div>
+        <div class="row"><span class="lbl">Invertir <button class="i" data-info="invertir">i</button></span><div class="seg" data-seg="inv" data-ch="1"><button data-v="0">No</button><button data-v="1">Sí</button></div></div>
+      </div>
+
+      <div class="pnl">
+        <div class="pnl-h"><span class="sp">Horizontal</span></div>
+        <div class="row"><span class="lbl">Tiempo/div <button class="i" data-info="tdiv">i</button></span><div class="step"><button class="k" data-act="tdiv" data-d="-1">−</button><output id="tdo"></output><button class="k" data-act="tdiv" data-d="1">+</button></div></div>
+        <div class="row"><span class="lbl">Posición <button class="i" data-info="hpos">i</button></span><div class="step"><button class="k" data-act="hpos" data-d="-1">◀</button><output id="hpo"></output><button class="k" data-act="hpos" data-d="1">▶</button></div></div>
+      </div>
+
+      <div class="pnl">
+        <div class="pnl-h"><span class="sp">Disparo (trigger)</span><button class="i" data-info="trigfuente">i</button></div>
+        <div class="row"><span class="lbl">Fuente</span><div class="seg" data-seg="tsrc"><button data-v="0">CH1</button><button data-v="1">CH2</button></div></div>
+        <div class="row"><span class="lbl">Flanco <button class="i" data-info="flanco">i</button></span><div class="seg" data-seg="edge"><button data-v="rise">↑ Subida</button><button data-v="fall">↓ Bajada</button></div></div>
+        <div class="row"><span class="lbl">Nivel <button class="i" data-info="nivel">i</button></span><div class="step"><button class="k" data-act="lvl" data-d="-1">▼</button><output id="lvo"></output><button class="k" data-act="lvl" data-d="1">▲</button></div></div>
+        <div class="row"><span class="lbl"></span><button class="k" data-act="lvl50">Nivel al 50 %</button></div>
+        <div class="row"><span class="lbl">Modo <button class="i" data-info="trigmodo">i</button></span><div class="seg" data-seg="tmode"><button data-v="auto">Auto</button><button data-v="normal">Normal</button><button data-v="single">Único</button></div></div>
+      </div>
+
+      <div class="pnl">
+        <div class="pnl-h"><span class="sp">Funciones</span></div>
+        <div class="big"><button class="k" id="runstop" data-act="runstop">RUN</button><button class="k" data-act="autoset">AUTOSET</button></div>
+        <div class="row"><span class="lbl">Run/Stop <button class="i" data-info="runstop">i</button> Autoset <button class="i" data-info="autoset">i</button></span></div>
+        <div class="row"><span class="lbl">Cursores <button class="i" data-info="cursores">i</button></span><div class="seg" data-seg="cursors"><button data-v="off">No</button><button data-v="time">Tiempo</button><button data-v="volt">Tensión</button></div></div>
+        <div class="row"><span class="lbl">Sobre</span><div class="seg" data-seg="cursrc"><button data-v="0">CH1</button><button data-v="1">CH2</button></div></div>
+        <div class="row"><button class="k" data-act="reset">Reiniciar ajustes</button><button class="i" data-info="reiniciar">i</button></div>
+        <label class="chk"><input type="checkbox" id="lockAuto"> Modo examen (bloquea Autoset)</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="bench" aria-label="Banco de pruebas">
+    <div class="card">
+      <h2>Banco de pruebas <button class="i" data-info="banco">i</button></h2>
+      <select id="sensorSel" aria-label="Componente a medir"></select>
+      <p class="desc" id="sensorDesc"></p>
+      <div class="tools">
+        <button class="tool" data-tool="0"><span class="dot" style="background:var(--chip1)"></span>Punta CH1</button>
+        <button class="tool" data-tool="1"><span class="dot" style="background:var(--chip2)"></span>Punta CH2</button>
+        <button class="tool" data-tool="g"><span class="dot" style="background:var(--chipg)"></span>Pinza de masa</button>
+        <button class="tool plain" data-act="unplug">Soltar todo</button>
+        <button class="i" data-info="puntas">i</button>
+      </div>
+      <div class="conn-t">Conector del componente</div>
+      <div class="pins" id="pins"></div>
+      <div class="conn-t">Batería</div>
+      <div class="pins" id="batPins"></div>
+      <p class="toolhint" id="toolHint"></p>
+    </div>
+
+    <div class="card">
+      <h2>Motor <button class="i" data-info="motor">i</button></h2>
+      <div class="sl"><label for="rpm">Régimen <output id="rpmo"></output></label><input type="range" id="rpm" min="0" max="6000" step="50"></div>
+      <div class="sl"><label for="thr">Acelerador <output id="thro"></output></label><input type="range" id="thr" min="0" max="100" step="1"></div>
+      <label class="chk" style="color:var(--text)"><input type="checkbox" id="sweep"> Barrido lento automático del acelerador</label>
+      <div class="sl"><label for="temp">Temperatura refrigerante <output id="tempo"></output></label><input type="range" id="temp" min="-20" max="110" step="1"></div>
+      <button class="knock" id="knockBtn" hidden>Golpear el bloque (provocar picado)</button>
+    </div>
+
+    <div class="card">
+      <h2>Averías <button class="i" data-info="averias">i</button></h2>
+      <select id="faultSel" aria-label="Avería"></select>
+    </div>
+
+    <div class="card">
+      <h2>Objetivo del ajuste (CH1) <button class="i" data-info="objetivo">i</button></h2>
+      <ul class="eval" id="eval"></ul>
+      <details><summary>Valores de referencia</summary><p id="ref"></p></details>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg"><div class="dlg"><button class="close" data-act="close">Cerrar</button><h3 id="dlgT"></h3><div id="dlgB"></div></div></dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+const TAU=Math.PI*2;
+const VDIVS=[0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1,2,5,10];
+const TDIVS=[1e-6,2e-6,5e-6,1e-5,2e-5,5e-5,1e-4,2e-4,5e-4,1e-3,2e-3,5e-3,0.01,0.02,0.05,0.1,0.2,0.5,1,2];
+const COL=['#ffd23f','#3fd0ff'];
+
+/* ---------- Señales ---------- */
+function vbat(t,P){
+  if(P.rpm<=0) return 12.5;
+  const fr=P.rpm*2.5/60*18;
+  return 14.1+0.3*(Math.abs(Math.sin(Math.PI*fr*t))-0.637);
+}
+const BAT={pins:[
+  {id:'p',l:'+ Batería',w:'#d62828',wn:'positivo'},
+  {id:'n',l:'− Batería',w:'#1f1f1f',wn:'masa de chasis'}]};
+
+const SENSORS={
+hall:{name:'Sensor Hall (distribuidor)',kind:'per',
+  desc:'Sensor Hall de 3 hilos del distribuidor. La ECU lo alimenta a +5 V y polariza la señal con una resistencia interna (pull-up); el sensor conmuta la señal a masa y genera una onda cuadrada. 4 ventanas por vuelta del distribuidor.',
+  pins:[{id:'v5',l:'+5 V',w:'#d62828',wn:'rojo · alimentación'},{id:'gnd',l:'Masa',w:'#6b4423',wn:'marrón · masa sensor'},{id:'sig',l:'Señal',w:'#2e9e4f',wn:'verde · a la ECU'}],
+  faults:[['none','Sin avería'],['alim','Alimentación +5 V cortada'],['masa','Masa deficiente (resistencia en la masa)'],['corto','Señal cortocircuitada a masa'],['abierto','Cable de señal cortado (medido en el sensor)']],
+  ref:'A ralentí (800 rpm): onda cuadrada entre ≈0,15 V y ≈4,95 V, ≈26,7 Hz (2 impulsos por vuelta de cigüeñal), ciclo de trabajo ≈70 %. Ajuste orientativo: 1 V/div, 10 ms/div, posición CH1 −2,5 div, disparo flanco ↑ a 2,5 V. Con masa deficiente el nivel bajo sube a ≈0,95 V.',
+  f(t,P,F){const go=F==='masa'?0.8:0;let ph=P.rpm/120*t*4;ph-=Math.floor(ph);
+    let sig=ph<0.3?0.15+go:4.95;
+    if(F==='alim')sig=4.95; if(F==='corto')sig=0.02; if(F==='abierto')sig=0;
+    return {v5:F==='alim'?0:5,gnd:go,sig};}
+},
+ckp:{name:'Sensor CKP inductivo (cigüeñal)',kind:'per',
+  desc:'Sensor inductivo de 2 hilos frente a una rueda fónica de 60−2 dientes. No necesita alimentación: genera una tensión alterna cuya amplitud y frecuencia aumentan con las rpm. El hueco de 2 dientes marca la posición del cigüeñal.',
+  pins:[{id:'sp',l:'Señal +',w:'#f1f1f1',wn:'blanco'},{id:'sm',l:'Señal −',w:'#6b4423',wn:'marrón'}],
+  faults:[['none','Sin avería'],['entrehierro','Entrehierro excesivo'],['diente','Diente de la rueda dañado'],['corto','Bobinado en cortocircuito']],
+  ref:'Señal alterna senoidal, ≈±3,6 V a 800 rpm en los dientes y ≈±6 V en el hueco (crece con las rpm). Un diente por grado de 6°: frecuencia = rpm → 800 Hz a ralentí. Hueco de 2 dientes una vez por vuelta (cada 75 ms a 800 rpm). Ajuste: 1 V/div, 500 µs/div para ver dientes, 10 ms/div para ver el hueco. Pinza de masa en Señal −.',
+  f(t,P,F){if(P.rpm<=0)return {sp:0,sm:0};let A=0.0045*P.rpm;if(F==='entrehierro')A*=0.25;if(F==='corto')A*=0.03;
+    const te=P.rpm*t,n=Math.floor(te),k=((n%60)+60)%60,fr=te-n;let v;
+    if(k<58){v=A*Math.sin(TAU*fr);if(F==='diente'&&k===20)v*=0.25;}else{const u=(k-58+fr)/2;v=A*1.7*Math.sin(TAU*u);}
+    return {sp:v,sm:0};}
+},
+tps:{name:'Potenciómetro de mariposa (TPS)',kind:'dc',
+  desc:'Potenciómetro de 3 hilos: +5 V, masa y cursor. La tensión de señal es proporcional a la apertura: ≈0,5 V cerrada y ≈4,5 V totalmente abierta.',
+  pins:[{id:'v5',l:'+5 V',w:'#d62828',wn:'rojo · alimentación'},{id:'gnd',l:'Masa',w:'#6b4423',wn:'marrón · masa sensor'},{id:'sig',l:'Señal',w:'#2563eb',wn:'azul · cursor'}],
+  faults:[['none','Sin avería'],['alim','Alimentación +5 V cortada'],['masa','Masa deficiente'],['pista','Pista resistiva desgastada'],['corto','Señal cortocircuitada a masa']],
+  ref:'0,5 V con la mariposa cerrada y 4,5 V abierta, subiendo de forma lineal y SIN cortes. Ajuste: 1 V/div, 500 ms/div (modo roll), posición −2,5 div, y activa el barrido lento. Con la pista desgastada aparecen caídas bruscas hacia 0 V alrededor del 20–35 %.',
+  f(t,P,F){const go=F==='masa'?0.6:0;if(F==='alim')return {v5:0,gnd:go,sig:0};
+    let sig=go+(5-go)*(0.1+0.8*P.thr);
+    if(F==='pista'&&P.thr>0.18&&P.thr<0.38&&Math.random()<0.05)sig=go+0.5*Math.random();
+    if(F==='corto')sig=0.02;return {v5:5,gnd:go,sig};}
+},
+map:{name:'Sensor de presión de colector (MAP)',kind:'dc',
+  desc:'Sensor de presión absoluta de 3 hilos. A ralentí hay mucho vacío en el colector (presión baja, tensión baja); a plena carga o con el motor parado la presión es casi la atmosférica (tensión alta).',
+  pins:[{id:'v5',l:'+5 V',w:'#d62828',wn:'rojo · alimentación'},{id:'gnd',l:'Masa',w:'#6b4423',wn:'marrón · masa sensor'},{id:'sig',l:'Señal',w:'#2e9e4f',wn:'verde · a la ECU'}],
+  faults:[['none','Sin avería'],['alim','Alimentación +5 V cortada'],['masa','Masa deficiente'],['vacio','Tubo de vacío desconectado'],['corto','Señal cortocircuitada a masa']],
+  ref:'Contacto puesto sin motor ≈4,2 V (presión atmosférica). Ralentí ≈1,2 V (≈30 kPa); plena carga ≈4,2 V. Lleva una pequeña ondulación por los tiempos de admisión. Ajuste: 1 V/div, 500 ms/div (roll) y acelera para ver el cambio.',
+  f(t,P,F){const go=F==='masa'?0.6:0;if(F==='alim')return {v5:0,gnd:go,sig:0};
+    const kpa=(P.rpm<=0||F==='vacio')?100:30+70*P.thr;let sig=go+0.4+4.2*(kpa-10)/100;
+    if(P.rpm>0&&F!=='vacio')sig+=(0.03+0.05*P.thr)*Math.sin(TAU*P.rpm/30*t);
+    if(F==='corto')sig=0.02;return {v5:5,gnd:go,sig};}
+},
+lambda:{name:'Sonda lambda de zirconio',kind:'per',
+  desc:'Sonda de 4 hilos: 2 de señal y 2 del calefactor. Caliente genera ≈0,1 V con mezcla pobre y ≈0,9 V con mezcla rica; la ECU corrige continuamente y la señal oscila. El calefactor lo controla la ECU por masa con PWM.',
+  pins:[{id:'sig',l:'Señal',w:'#1f1f1f',wn:'negro'},{id:'sg',l:'Masa señal',w:'#9ca3af',wn:'gris'},{id:'hp',l:'+12 V calefactor',w:'#f1f1f1',wn:'blanco'},{id:'hc',l:'Control calefactor',w:'#f1f1f1',wn:'blanco · a la ECU'}],
+  faults:[['none','Sin avería'],['lenta','Sonda envejecida (respuesta lenta)'],['pobre','Toma de aire (mezcla pobre)'],['rica','Inyector goteando (mezcla rica)'],['calef','Calefactor cortado']],
+  ref:'Motor caliente: oscila entre ≈0,1 y ≈0,9 V, ≈1 Hz a ralentí y más rápido al subir rpm. Con el motor frío y el calefactor cortado se queda fija en ≈0,45 V. Ajuste: 200 mV/div, 500 ms/div (roll), posición −2,5 div. Calefactor: PWM a 20 Hz entre ≈0,3 V y tensión de batería (10 V/div, 20 ms/div).',
+  f(t,P,F){const vb=vbat(t,P);const hot=P.rpm>0&&(F!=='calef'||P.temp>=60);let sig=0.45;
+    if(hot){let fq=0.8+P.rpm/1500,a=0.4,c=0.45,k=3;
+      if(F==='lenta'){fq*=0.3;a=0.22;k=1.2;} if(F==='pobre'){c=0.18;a=0.1;} if(F==='rica'){c=0.76;a=0.09;}
+      sig=c+a*Math.tanh(k*Math.sin(TAU*fq*t));}
+    let hc;if(F==='calef')hc=0;else{const d=P.temp<60?0.8:0.35;let p=20*t;p-=Math.floor(p);hc=p<d?0.3:vb;}
+    return {sig,sg:0,hp:vb,hc};}
+},
+ntc:{name:'Sensor de temperatura refrigerante (NTC)',kind:'dc',
+  desc:'Termistor NTC de 2 hilos. La ECU lo alimenta con 5 V a través de una resistencia interna de ≈2,5 kΩ: al calentarse baja su resistencia y baja la tensión de señal.',
+  pins:[{id:'sig',l:'Señal',w:'#2563eb',wn:'azul · 5 V vía ECU'},{id:'gnd',l:'Masa',w:'#6b4423',wn:'marrón · masa sensor'}],
+  faults:[['none','Sin avería'],['abierto','Circuito abierto (conector suelto)'],['corto','Cortocircuito a masa'],['masa','Masa deficiente']],
+  ref:'≈2,6 V a 20 °C y ≈0,55 V a 85 °C. Es una señal continua que baja al calentarse el motor. Circuito abierto: 5 V fijos; cortocircuito: 0 V. Ajuste: 500 mV/div, 1 s/div (roll) y mueve la temperatura.',
+  f(t,P,F){const T=P.temp+273.15,R=2200*Math.exp(3500*(1/T-1/298.15));
+    if(F==='abierto')return {sig:5,gnd:0}; if(F==='corto')return {sig:0.02,gnd:0};
+    const Rg=F==='masa'?400:0;const tot=R+Rg+2490;return {sig:5*(R+Rg)/tot,gnd:5*Rg/tot};}
+},
+iny:{name:'Inyector de gasolina',kind:'per',
+  desc:'Inyector de 2 hilos. Recibe +12 V permanentes del relé y la ECU lo abre poniendo a masa el otro cable. Al cortar la corriente, la bobina del inyector genera un pico de tensión inductivo.',
+  pins:[{id:'bat',l:'+12 V',w:'#d62828',wn:'rojo · desde relé'},{id:'ctl',l:'Control ECU',w:'#d4b106',wn:'amarillo · masa ECU'}],
+  faults:[['none','Sin avería'],['alim','Alimentación +12 V cortada'],['espiras','Bobina con espiras en corto'],['agarrotado','Aguja agarrotada']],
+  ref:'En reposo, tensión de batería; durante la inyección ≈0,3–0,7 V (≈2,4 ms a ralentí, aumenta con el acelerador y en frío); al cortar, pico inductivo de ≈60 V y una pequeña joroba ≈0,9 ms después (cierre de la aguja). Ajuste: 10 V/div, 1 ms/div, posición −3 div, disparo flanco ↓ a 7 V.',
+  f(t,P,F){const vb=vbat(t,P);if(F==='alim')return {bat:0,ctl:0};if(P.rpm<=0)return {bat:vb,ctl:vb};
+    const fq=P.rpm/120;let ph=fq*t;ph-=Math.floor(ph);const tp=ph/fq;
+    const pw=(2.4+7*P.thr+(P.temp<40?1.5:0))*1e-3;let v;
+    if(tp<pw)v=0.25+0.45*(tp/pw);
+    else{const dt=tp-pw;const pk=F==='espiras'?24:62,pl=F==='espiras'?40e-6:120e-6;
+      if(dt<pl)v=pk-3*(dt/pl);else v=vb+(pk-3-vb)*Math.exp(-(dt-pl)/60e-6);
+      if(F!=='agarrotado')v+=1.3*Math.exp(-Math.pow((dt-0.9e-3)/0.22e-3,2));}
+    return {bat:vb,ctl:v};}
+},
+bobina:{name:'Bobina de encendido (primario)',kind:'per',
+  desc:'Bobina individual. Recibe +12 V y la ECU pone a masa el primario durante el tiempo de carga (dwell). Al cortar, el primario refleja la tensión de chispa: pico de varios cientos de voltios. Necesitarás la sonda ×10.',
+  pins:[{id:'bat',l:'+12 V',w:'#d62828',wn:'rojo · desde relé'},{id:'ctl',l:'Control primario',w:'#2e9e4f',wn:'verde · a la ECU'}],
+  faults:[['none','Sin avería'],['alim','Alimentación +12 V cortada'],['gap','Bujía con separación excesiva'],['corto','Bujía en derivación (cable a masa)']],
+  ref:'Tiempo de carga (dwell) ≈3,2 ms a ≈0,4–1,8 V; pico de ≈360 V; línea de chispa ≈40 V durante ≈1,4 ms; después, oscilaciones amortiguadas. Ajuste: sonda ×10, 50 V/div, 1 ms/div, posición −3 div, disparo flanco ↑ a 100 V. Bujía separada: pico más alto y chispa más corta; derivación: pico bajo y chispa larga.',
+  f(t,P,F){const vb=vbat(t,P);if(F==='alim')return {bat:0,ctl:0};if(P.rpm<=0)return {bat:vb,ctl:vb};
+    const fq=P.rpm/120;let ph=fq*t;ph-=Math.floor(ph);const tp=ph/fq;const dw=3.2e-3;let v;
+    if(tp<dw)v=0.4+1.4*(tp/dw);
+    else{const dt=tp-dw;let pk=360,bl=1.4e-3,bv=38;if(F==='gap'){pk=470;bl=0.8e-3;bv=55;}if(F==='corto'){pk=140;bl=2.2e-3;bv=22;}
+      if(dt<12e-6)v=vb+(pk-vb)*(dt/12e-6);
+      else if(dt<50e-6)v=pk+(bv+8-pk)*((dt-12e-6)/38e-6);
+      else if(dt<bl)v=bv+8-14*((dt-50e-6)/(bl-50e-6))+2.5*(Math.random()-0.5);
+      else{const d=dt-bl;v=vb+(bv-6-vb)*Math.exp(-d/0.35e-3)*Math.cos(TAU*3500*d);}}
+    return {bat:vb,ctl:v};}
+},
+knock:{name:'Sensor de picado (piezoeléctrico)',kind:'per',
+  desc:'Sensor piezoeléctrico de 2 hilos atornillado al bloque. Genera una pequeña tensión alterna con las vibraciones del motor; con picado aparecen ráfagas grandes a unos 7 kHz.',
+  pins:[{id:'sig',l:'Señal',w:'#9ca3af',wn:'gris'},{id:'gnd',l:'Masa / blindaje',w:'#1f1f1f',wn:'negro'}],
+  faults:[['none','Sin avería'],['flojo','Sensor flojo (par de apriete bajo)'],['cortado','Cable de señal cortado']],
+  ref:'Sin picado: pequeñas ráfagas de ≈0,1 V tras cada combustión. Al golpear el bloque: ráfagas de más de 1 V a ≈6,8 kHz. Ajuste: 200 mV/div, 5 ms/div; usa el modo Único con disparo a 0,5 V para capturar el golpe. Con el sensor flojo la señal casi desaparece.',
+  f(t,P,F){if(F==='cortado'||P.rpm<=0)return {sig:0,gnd:0};const ev=P.rpm/30;let ph=ev*t;ph-=Math.floor(ph);const dt=ph/ev;
+    let A=0.06+0.00004*P.rpm;if(t>=P.ks&&t<=P.ku)A*=12;if(F==='flojo')A*=0.15;
+    return {sig:A*Math.exp(-dt/0.0009)*Math.sin(TAU*6800*dt),gnd:0};}
+}
+};
+
+/* ---------- Estado ---------- */
+const defScope=()=>({
+  ch:[{on:true,vdi:5,pos:0,coupling:'DC',probe:1,inv:false},{on:false,vdi:5,pos:0,coupling:'DC',probe:1,inv:false}],
+  tdi:0,hpos:1,trig:{src:0,edge:'rise',level:0,mode:'auto'},running:true,
+  cursors:'off',curSrc:0,cur:{x1:3,x2:7,y1:2,y2:-2},trace:null,waiting:false});
+let S=defScope();
+const B={sensor:'hall',fault:'none',rpm:800,thr:0,temp:85,sweep:false,ks:-9,ku:-9,tool:'0',tips:[null,null],gnd:null,lock:false};
+let T=10,roll=null,acOff=[0,0];
+
+const vdiv=c=>VDIVS[S.ch[c].vdi]*S.ch[c].probe;
+const tdiv=()=>TDIVS[S.tdi];
+function params(){const thr=B.sweep?0.5-0.5*Math.cos(TAU*T/6):B.thr;return {rpm:B.rpm,thr,temp:B.temp,ks:B.ks,ku:B.ku};}
+function pinV(ref,t,P){const [s,p]=ref.split('.');if(s==='bat')return p==='p'?vbat(t,P):0;return SENSORS[s].f(t,P,B.fault)[p];}
+function rawCh(c,t,P){
+  const tip=B.tips[c];if(!tip)return (Math.random()-0.5)*0.004;
+  let v=pinV(tip,t,P);
+  if(B.gnd)v-=pinV(B.gnd,t,P);else v+=0.6*Math.sin(TAU*50*t)+0.25*Math.sin(TAU*150*t);
+  return v+(Math.random()-0.5)*0.006;
+}
+function chV(c,t,P){const ch=S.ch[c];if(ch.coupling==='GND')return 0;let v=rawCh(c,t,P);if(ch.coupling==='AC')v-=acOff[c];return ch.inv?-v:v;}
+
+/* ---------- Adquisición ---------- */
+function computeAC(P){for(let c=0;c<2;c++){if(S.ch[c].coupling!=='AC'||!B.tips[c])continue;let s=0;for(let i=0;i<400;i++)s+=rawCh(c,T-Math.random(),P);acOff[c]=s/400;}}
+function findTrigger(P){
+  const c=S.trig.src,L=S.trig.level,h=Math.max(0.06*vdiv(c),0.002),rise=S.trig.edge==='rise';
+  const refine=(a,b)=>{for(let k=0;k<18;k++){const m=(a+b)/2,v=chV(c,m,P);if(rise?v<L:v>L)a=m;else b=m;}return (a+b)/2;};
+  const scan=(len,n)=>{const st=len/n;let armed=false,pt=T;
+    for(let i=1;i<=n;i++){const t=T+i*st,v=chV(c,t,P);
+      if(rise){if(v<L-h)armed=true;else if(armed&&v>=L)return refine(pt,t);}
+      else{if(v>L+h)armed=true;else if(armed&&v<=L)return refine(pt,t);}
+      pt=t;}
+    return null;};
+  const td=tdiv();
+  return scan(Math.max(30*td,0.004),4000)??scan(1.6,32000);
+}
+function acquire(P){
+  computeAC(P);const td=tdiv(),N=1000;
+  if(td>=0.2){acquireRoll(P,td);return;}
+  roll=null;
+  const t0=findTrigger(P);
+  if(t0==null&&S.trig.mode!=='auto'){S.waiting=true;return;}
+  S.waiting=false;
+  const start=t0!=null?t0-S.hpos*td:T,span=10*td,d=[null,null];
+  for(let c=0;c<2;c++){if(!S.ch[c].on)continue;const a=new Float32Array(N);for(let i=0;i<N;i++)a[i]=chV(c,start+i*span/(N-1),P);d[c]=a;}
+  S.trace={roll:false,start,span,d,anchor:start+S.hpos*td,triggered:t0!=null};
+  if(t0!=null&&S.trig.mode==='single'){S.running=false;updateUI();}
+}
+function acquireRoll(P,td){
+  const N=1000,dts=10*td/N;
+  if(!roll||roll.td!==td)roll={td,d:[new Float32Array(N).fill(NaN),new Float32Array(N).fill(NaN)],last:T};
+  let n=Math.floor((T-roll.last)/dts);
+  if(n>0){if(n>N){roll.last=T-N*dts;n=N;}
+    for(let c=0;c<2;c++){const a=roll.d[c];a.copyWithin(0,n);for(let k=0;k<n;k++){const t=roll.last+(k+1)*dts;a[N-n+k]=S.ch[c].on?chV(c,t,P):NaN;}}
+    roll.last+=n*dts;}
+  S.waiting=false;
+  S.trace={roll:true,start:roll.last-(N-1)*dts,span:(N-1)*dts,d:[roll.d[0],roll.d[1]],anchor:roll.last,triggered:null};
+}
+const dispStart=tr=>tr.roll?tr.anchor-10*tdiv():tr.anchor-S.hpos*tdiv();
+
+/* ---------- Medidas ---------- */
+function measure(c){
+  const tr=S.trace;if(!tr||!S.ch[c].on||!tr.d[c])return null;
+  const d=tr.d[c],N=d.length,td=tdiv(),ds=dispStart(tr),vd=vdiv(c),pos=S.ch[c].pos;
+  const vs=[],ts=[];let mn=Infinity,mx=-Infinity,sum=0,clip=false;
+  for(let i=0;i<N;i++){let v=d[i];if(isNaN(v))continue;const t=tr.start+i*tr.span/(N-1),x=(t-ds)/(10*td);if(x<0||x>1)continue;
+    let y=v/vd+pos;if(y>4.02||y<-4.02)clip=true;y=Math.max(-5,Math.min(5,y));v=(y-pos)*vd;
+    vs.push(v);ts.push(t);if(v<mn)mn=v;if(v>mx)mx=v;sum+=v;}
+  if(vs.length<5)return null;
+  const vpp=mx-mn,mid=(mx+mn)/2,h=0.1*vpp;let f=NaN,duty=NaN;
+  if(vpp>0.015&&vpp>0.2*vd){const ev=[];let st=null;
+    for(let k=0;k<vs.length;k++){if(vs[k]>mid+h){if(st===0)ev.push(k);st=1;}else if(vs[k]<mid-h)st=0;}
+    if(ev.length>=2){const a=ev[0],b=ev[ev.length-1];f=(ev.length-1)/(ts[b]-ts[a]);let hi=0;for(let k=a;k<b;k++)if(vs[k]>mid)hi++;duty=hi/(b-a);}}
+  return {vmax:mx,vmin:mn,vpp,vavg:sum/vs.length,f,per:1/f,duty,clip};
+}
+
+/* ---------- Formato ---------- */
+const fmtNum=(x,d)=>x.toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
+function fmtSI(v,u){if(!isFinite(v))return '—';const a=Math.abs(v);if(a<1e-12)return '0 '+u;
+  const pre=[[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n']];const p=pre.find(p=>a>=p[0]*0.9995)||pre[4];
+  const n=v/p[0],an=Math.abs(n);return fmtNum(n,an>=100?0:an>=10?1:2)+' '+p[1]+u;}
+function fmtSet(v,u){const pre=[[1,''],[1e-3,'m'],[1e-6,'µ']];const a=Math.abs(v);const p=pre.find(p=>a>=p[0]*0.999)||pre[2];
+  return (v/p[0]).toLocaleString('es-ES',{maximumFractionDigits:2})+' '+p[1]+u;}
+
+/* ---------- Pantalla ---------- */
+const cv=$('#scr'),ctx=cv.getContext('2d');let CW=0,CH=0;const TB=24,BB=46;
+function resize(){const w=Math.floor($('#screenWrap').clientWidth-16);if(w===CW||w<100)return;
+  const h=Math.round(w*0.8)+TB+BB,dpr=window.devicePixelRatio||1;
+  cv.style.width=w+'px';cv.style.height=h+'px';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);CW=w;CH=h;}
+new ResizeObserver(resize).observe($('#screenWrap'));
+
+function draw(){
+  if(!CW)return;
+  const W=CW,gh=CH-TB-BB,gy=TB,dx=W/10,dy=gh/8,cy=gy+gh/2,mono=W<480?'600 10.5px "IBM Plex Mono",monospace':'600 12px "IBM Plex Mono",monospace';
+  ctx.fillStyle='#06110c';ctx.fillRect(0,0,W,CH);
+  ctx.fillStyle='#0a0e0c';ctx.fillRect(0,0,W,TB);ctx.fillRect(0,CH-BB,W,BB);
+  ctx.strokeStyle='rgba(150,200,175,0.17)';ctx.lineWidth=1;ctx.beginPath();
+  for(let i=0;i<=10;i++){const x=Math.round(i*dx)+.5;ctx.moveTo(x,gy);ctx.lineTo(x,gy+gh);}
+  for(let j=0;j<=8;j++){const y=Math.round(gy+j*dy)+.5;ctx.moveTo(0,y);ctx.lineTo(W,y);}
+  ctx.stroke();
+  ctx.strokeStyle='rgba(150,200,175,0.38)';ctx.beginPath();
+  for(let i=0;i<=50;i++){const x=i*dx/5;ctx.moveTo(x,cy-3);ctx.lineTo(x,cy+3);}
+  for(let j=0;j<=40;j++){const y=gy+j*dy/5;ctx.moveTo(W/2-3,y);ctx.lineTo(W/2+3,y);}
+  ctx.stroke();
+
+  const tr=S.trace,td=tdiv();
+  ctx.save();ctx.beginPath();ctx.rect(0,gy,W,gh);ctx.clip();
+  if(tr){const ds=dispStart(tr);
+    for(const c of [1,0]){if(!S.ch[c].on||!tr.d[c])continue;const d=tr.d[c],N=d.length,vd=vdiv(c),pos=S.ch[c].pos;
+      ctx.strokeStyle=COL[c];ctx.lineWidth=1.6;ctx.shadowColor=COL[c];ctx.shadowBlur=6;ctx.beginPath();let pen=false;
+      for(let i=0;i<N;i++){const v=d[i];if(isNaN(v)){pen=false;continue;}
+        const t=tr.start+i*tr.span/(N-1),x=(t-ds)/(10*td)*W;let yd=v/vd+pos;yd=Math.max(-5,Math.min(5,yd));const y=cy-yd*dy;
+        if(!pen){ctx.moveTo(x,y);pen=true;}else ctx.lineTo(x,y);}
+      ctx.stroke();ctx.shadowBlur=0;}}
+  if(S.cursors!=='off'){ctx.setLineDash([5,4]);ctx.strokeStyle='rgba(255,140,90,.9)';ctx.lineWidth=1.2;ctx.fillStyle='rgba(255,160,110,1)';ctx.font=mono;
+    if(S.cursors==='time'){[['x1','A'],['x2','B']].forEach(([k,l])=>{const x=S.cur[k]*dx;ctx.beginPath();ctx.moveTo(x,gy);ctx.lineTo(x,gy+gh);ctx.stroke();ctx.fillText(l,x+4,gy+14);});}
+    else{[['y1','A'],['y2','B']].forEach(([k,l])=>{const y=cy-S.cur[k]*dy;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();ctx.fillText(l,W-16,y-4);});}
+    ctx.setLineDash([]);}
+  ctx.font=mono;ctx.fillStyle='#ffb36b';
+  if(!B.tips[0]&&!B.tips[1])ctx.fillText('Conecta una punta en el banco de pruebas',10,gy+18);
+  else if(!B.gnd)ctx.fillText('⚠ Pinza de masa sin conectar',10,gy+18);
+  ctx.restore();
+
+  // marcas de 0 V
+  for(let c=0;c<2;c++){if(!S.ch[c].on)continue;const y=Math.max(gy+6,Math.min(gy+gh-6,cy-S.ch[c].pos*dy));
+    ctx.fillStyle=COL[c];ctx.beginPath();ctx.moveTo(0,y-7);ctx.lineTo(13,y);ctx.lineTo(0,y+7);ctx.fill();
+    ctx.fillStyle='#000';ctx.font='700 9px "IBM Plex Mono",monospace';ctx.fillText(String(c+1),2,y+3);}
+  // nivel de disparo
+  const sc=S.trig.src;if(!(tr&&tr.roll)){const yl=Math.max(gy+6,Math.min(gy+gh-6,cy-(S.trig.level/vdiv(sc)+S.ch[sc].pos)*dy));
+    ctx.fillStyle=COL[sc];ctx.beginPath();ctx.moveTo(W,yl-7);ctx.lineTo(W-13,yl);ctx.lineTo(W,yl+7);ctx.fill();
+    const xt=S.hpos*dx;if(xt>=0&&xt<=W){ctx.fillStyle='#ff9f43';ctx.beginPath();ctx.moveTo(xt-6,gy);ctx.lineTo(xt+6,gy);ctx.lineTo(xt,gy+9);ctx.fill();}}
+
+  // bandas de texto
+  ctx.font=mono;let st,stc;
+  if(!S.running){st='STOP';stc='#ff6b6b';}else if(tr&&tr.roll){st='ROLL';stc='#69db7c';}
+  else if(S.waiting){st='ESPERANDO DISPARO';stc='#ffc94d';}else if(tr&&tr.triggered){st='DISPARADO';stc='#69db7c';}else{st='AUTO · SIN DISPARO';stc='#ffc94d';}
+  ctx.fillStyle=stc;ctx.fillText(st,8,16);
+  const tt=`T CH${sc+1} ${S.trig.edge==='rise'?'↑':'↓'} ${fmtSI(S.trig.level,'V')}`;ctx.fillStyle=COL[sc];ctx.fillText(tt,W-ctx.measureText(tt).width-8,16);
+  const y1=CH-BB+18,y2=CH-BB+37;
+  for(let c=0;c<2;c++){const ch=S.ch[c];const txt=`CH${c+1} ${fmtSet(vdiv(c),'V')}/div ${ch.coupling} ×${ch.probe}${ch.inv?' INV':''}`;
+    ctx.fillStyle=ch.on?COL[c]:'#5b646c';ctx.fillText(txt,c===0?8:W-ctx.measureText(txt).width-8,y1);}
+  ctx.fillStyle='#e9ecee';ctx.fillText(`H ${fmtSet(td,'s')}/div`,8,y2);
+  const sen=SENSORS[B.sensor].name;ctx.fillStyle='#8a949c';const s2=W<480?'':`${sen} · ${B.rpm} rpm`;ctx.fillText(s2,W-ctx.measureText(s2).width-8,y2);
+}
+
+/* ---------- Cursores (arrastre) ---------- */
+let drag=null;
+function curPos(e){const r=cv.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,gh=CH-TB-BB;return {xd:x/(CW/10),yd:(TB+gh/2-y)/(gh/8)};}
+cv.addEventListener('pointerdown',e=>{if(S.cursors==='off')return;const p=curPos(e);
+  drag=S.cursors==='time'?(Math.abs(p.xd-S.cur.x1)<Math.abs(p.xd-S.cur.x2)?'x1':'x2'):(Math.abs(p.yd-S.cur.y1)<Math.abs(p.yd-S.cur.y2)?'y1':'y2');
+  cv.setPointerCapture(e.pointerId);moveCur(e);});
+function moveCur(e){if(!drag)return;const p=curPos(e);if(drag[0]==='x')S.cur[drag]=Math.max(0,Math.min(10,p.xd));else S.cur[drag]=Math.max(-4,Math.min(4,p.yd));}
+cv.addEventListener('pointermove',moveCur);
+cv.addEventListener('pointerup',()=>drag=null);cv.addEventListener('pointercancel',()=>drag=null);
+
+/* ---------- Panel de medidas ---------- */
+function updateMeas(){
+  const m=[measure(0),measure(1)];
+  const rows=[['Vmáx','vmax'],['Vmín','vmin'],['Vpp','vpp'],['Vmed','vavg'],['Frecuencia','f'],['Periodo','per'],['Ciclo trabajo','duty']];
+  const val=(mm,k)=>{if(!mm)return '—';const v=mm[k];if(k==='f')return fmtSI(v,'Hz');if(k==='per')return fmtSI(v,'s');if(k==='duty')return isFinite(v)?fmtNum(v*100,1)+' %':'—';return fmtSI(v,'V');};
+  let h=`<div class="mgrid"><span></span><span class="h1">CH1${m[0]&&m[0].clip?' ⚠':''}</span><span class="h2">CH2${m[1]&&m[1].clip?' ⚠':''}</span>`;
+  rows.forEach(r=>{h+=`<span>${r[0]}</span><span>${val(m[0],r[1])}</span><span>${val(m[1],r[1])}</span>`;});
+  h+='</div>';
+  if((m[0]&&m[0].clip)||(m[1]&&m[1].clip))h+='<div class="cur">⚠ Señal fuera de pantalla: las medidas no son fiables.</div>';
+  if(S.cursors!=='off'){const td=tdiv(),c=S.curSrc,vd=vdiv(c),pos=S.ch[c].pos,ref=(S.trace&&S.trace.roll)?10:S.hpos;
+    if(S.cursors==='time'){const a=(S.cur.x1-ref)*td,b=(S.cur.x2-ref)*td,dt=Math.abs(b-a);
+      h+=`<div class="cur"><span>A ${fmtSI(a,'s')}</span><span>B ${fmtSI(b,'s')}</span><span>Δt ${fmtSI(dt,'s')}</span><span>1/Δt ${fmtSI(dt>0?1/dt:NaN,'Hz')}</span></div>`;}
+    else{const a=(S.cur.y1-pos)*vd,b=(S.cur.y2-pos)*vd;
+      h+=`<div class="cur"><span>CH${c+1}</span><span>A ${fmtSI(a,'V')}</span><span>B ${fmtSI(b,'V')}</span><span>ΔV ${fmtSI(Math.abs(a-b),'V')}</span></div>`;}}
+  $('#measBody').innerHTML=h;
+  renderEval(m[0]);
+}
+function renderEval(m){
+  const it=[],sen=SENSORS[B.sensor];
+  const out=()=>{if(!it.some(x=>x[0]!=='ok')&&it.length)it.unshift(['ok','¡Bien ajustado! Ahora mide con las medidas automáticas o con los cursores.']);
+    $('#eval').innerHTML=it.map(x=>`<li class="${x[0]}">${x[1]}</li>`).join('');};
+  if(!B.tips[0]){it.push(['bad','Conecta la punta del CH1: elige «Punta CH1» y pulsa el borne que quieras medir.']);return out();}
+  if(!B.gnd)it.push(['bad','Falta la pinza de masa: conéctala a la masa del componente o al negativo de batería.']);
+  if(!S.ch[0].on){it.push(['bad','El canal 1 está apagado: pulsa CH1.']);return out();}
+  if(S.ch[0].coupling==='GND'){it.push(['warn','Acoplamiento en GND: la entrada está desconectada. Pásalo a DC.']);return out();}
+  if(!m){it.push(['warn',S.waiting?'El osciloscopio espera un disparo que no llega: revisa el nivel de disparo o usa el modo Auto.':'Todavía no hay señal en pantalla.']);return out();}
+  const vd=vdiv(0),vppd=m.vpp/vd;
+  if(m.clip)it.push(['bad','La señal se sale de la pantalla: sube los V/div o mueve la posición vertical.']);
+  else if(m.vpp>0.03&&vppd<2)it.push(['warn',`La señal solo ocupa ${fmtNum(vppd,1)} div en vertical: baja los V/div para verla más grande.`]);
+  else if(m.vpp>0.03)it.push(['ok',`Amplitud correcta: ${fmtNum(vppd,1)} divisiones.`]);
+  else if(sen.kind==='dc')it.push(['ok',`Señal continua de ${fmtSI(m.vavg,'V')}. Para ver cómo varía usa un tiempo/div lento (modo roll) y mueve el acelerador o la temperatura.`]);
+  else it.push(['warn','La traza es casi plana: revisa la conexión, la escala o si hay una avería.']);
+  if(sen.kind==='per'&&m.vpp>0.03&&!m.clip){const span=10*tdiv();
+    if(isFinite(m.f)){const n=m.f*span;if(n>12)it.push(['warn',`Se ven unos ${Math.round(n)} periodos: baja el tiempo/div para ver entre 2 y 5.`]);
+      else if(n<1.9)it.push(['warn','Se ve poco más de un periodo: sube un poco el tiempo/div.']);else it.push(['ok',`Se ven ${fmtNum(n,1)} periodos.`]);}
+    else it.push(['warn','No se distinguen periodos completos: sube el tiempo/div.']);
+    if(S.trace&&!S.trace.roll){if(S.trace.triggered)it.push(['ok','Disparo estable: la imagen está quieta.']);
+      else it.push(['warn','Imagen inestable: pon el nivel de disparo dentro de la señal (entre su mínimo y su máximo) o pulsa «Nivel al 50 %».']);}}
+  out();
+}
+
+/* ---------- Interfaz ---------- */
+function updateUI(){
+  for(let c=0;c<2;c++){const ch=S.ch[c];$('#vd'+c).textContent=fmtSet(vdiv(c),'V');$('#vp'+c).textContent=fmtNum(ch.pos,1)+' div';}
+  $('#tdo').textContent=fmtSet(tdiv(),'s');$('#hpo').textContent=fmtNum(S.hpos,1)+' div';$('#lvo').textContent=fmtSI(S.trig.level,'V');
+  $$('[data-act="chon"]').forEach(b=>b.classList.toggle('on',S.ch[+b.dataset.ch].on));
+  const segVal={coupling:c=>S.ch[c].coupling,probe:c=>String(S.ch[c].probe),inv:c=>S.ch[c].inv?'1':'0',tsrc:()=>String(S.trig.src),edge:()=>S.trig.edge,tmode:()=>S.trig.mode,cursors:()=>S.cursors,cursrc:()=>String(S.curSrc)};
+  $$('[data-seg]').forEach(g=>{const v=segVal[g.dataset.seg](+g.dataset.ch);g.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));});
+  const rs=$('#runstop');rs.textContent=S.running?'RUN':'STOP';rs.className='k '+(S.running?'run':'stop');
+  cv.style.touchAction=S.cursors==='off'?'pan-y':'none';
+  $('#curhint').textContent=S.cursors==='off'?'':'Arrastra las líneas A y B sobre la pantalla.';
+}
+function renderBench(){
+  const sen=SENSORS[B.sensor];$('#sensorDesc').textContent=sen.desc;$('#ref').textContent=sen.ref;
+  const pinHtml=(pfx,p)=>{const ref=pfx+'.'+p.id;let tags='';if(B.tips[0]===ref)tags+='<span class="tag t1">CH1</span>';if(B.tips[1]===ref)tags+='<span class="tag t2">CH2</span>';if(B.gnd===ref)tags+='<span class="tag tg">Masa</span>';
+    return `<button class="pin" data-pin="${ref}"><span class="top"><span class="dot" style="background:${p.w}"></span>${p.l}</span><span class="wn">${p.wn}</span><span class="tags">${tags}</span></button>`;};
+  $('#pins').innerHTML=sen.pins.map(p=>pinHtml(B.sensor,p)).join('');
+  $('#batPins').innerHTML=BAT.pins.map(p=>pinHtml('bat',p)).join('');
+  $$('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===B.tool));
+  const tn={'0':'Punta CH1','1':'Punta CH2','g':'Pinza de masa'}[B.tool];
+  $('#toolHint').textContent=`Herramienta activa: ${tn}. Pulsa un borne para conectarla.`;
+  $('#knockBtn').hidden=B.sensor!=='knock';
+}
+function fillSelects(){
+  $('#sensorSel').innerHTML=Object.entries(SENSORS).map(([k,s])=>`<option value="${k}">${s.name}</option>`).join('');$('#sensorSel').value=B.sensor;
+  $('#faultSel').innerHTML=SENSORS[B.sensor].faults.map(f=>`<option value="${f[0]}">${f[1]}</option>`).join('');$('#faultSel').value=B.fault;
+}
+function updateEngine(){
+  $('#rpm').value=B.rpm;$('#rpmo').textContent=B.rpm===0?'parado (contacto puesto)':B.rpm+' rpm';
+  $('#thr').value=Math.round(B.thr*100);$('#thro').textContent=B.sweep?'barrido':Math.round(B.thr*100)+' %';$('#thr').disabled=B.sweep;
+  $('#temp').value=B.temp;$('#tempo').textContent=B.temp+' °C';
+}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('show'),2200);}
+
+function autoset(){
+  if(B.lock){toast('Autoset bloqueado: modo examen activado');return;}
+  const P=params();let first=true,any=false;
+  for(let c=0;c<2;c++){const ch=S.ch[c];if(!ch.on||!B.tips[c])continue;any=true;ch.coupling='DC';ch.inv=false;
+    const n=24000,L=1.2,vals=new Float32Array(n);let mn=Infinity,mx=-Infinity;
+    for(let i=0;i<n;i++){const v=rawCh(c,T+i*L/n,P);vals[i]=v;if(v<mn)mn=v;if(v>mx)mx=v;}
+    const vpp=Math.max(mx-mn,0.01);ch.probe=Math.max(Math.abs(mx),Math.abs(mn))>70?10:1;
+    let idx=VDIVS.findIndex(b=>vpp/(b*ch.probe)<=6);if(idx<0)idx=VDIVS.length-1;ch.vdi=idx;
+    ch.pos=Math.max(-4,Math.min(4,Math.round(-((mx+mn)/2)/vdiv(c)*10)/10));
+    if(first){first=false;const mid=(mx+mn)/2,h=0.1*vpp;const ev=[];let st=null;
+      if(vpp>0.05){for(let i=0;i<n;i++){if(vals[i]>mid+h){if(st===0)ev.push(i);st=1;}else if(vals[i]<mid-h)st=0;}}
+      if(ev.length>=2){const f=(ev.length-1)/((ev[ev.length-1]-ev[0])*L/n);let ti=TDIVS.findIndex(t=>10*t>=3/f);if(ti<0)ti=TDIVS.length-1;S.tdi=ti;}
+      S.trig={src:c,edge:'rise',level:mid,mode:'auto'};S.hpos=1;}}
+  if(!any){toast('Conecta una punta y enciende el canal antes de usar Autoset');return;}
+  S.running=true;roll=null;updateUI();
+}
+
+/* Eventos */
+document.addEventListener('click',e=>{
+  const inf=e.target.closest('[data-info]');if(inf){openInfo(inf.dataset.info);return;}
+  const sg=e.target.closest('[data-seg] button');
+  if(sg){const g=sg.parentElement,k=g.dataset.seg,c=+g.dataset.ch,v=sg.dataset.v;
+    if(k==='coupling')S.ch[c].coupling=v;if(k==='probe')S.ch[c].probe=+v;if(k==='inv')S.ch[c].inv=v==='1';
+    if(k==='tsrc')S.trig.src=+v;if(k==='edge')S.trig.edge=v;if(k==='cursors')S.cursors=v;if(k==='cursrc')S.curSrc=+v;
+    if(k==='tmode'){S.trig.mode=v;S.running=true;}
+    updateUI();return;}
+  const tl=e.target.closest('[data-tool]');if(tl){B.tool=tl.dataset.tool;renderBench();return;}
+  const pn=e.target.closest('[data-pin]');
+  if(pn){const ref=pn.dataset.pin;if(B.tool==='g')B.gnd=B.gnd===ref?null:ref;else{const c=+B.tool;B.tips[c]=B.tips[c]===ref?null:ref;if(B.tips[c]&&!S.ch[c].on)S.ch[c].on=true;}
+    renderBench();updateUI();return;}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  const act=a.dataset.act,c=+a.dataset.ch,d=+a.dataset.d;
+  switch(act){
+    case 'chon':S.ch[c].on=!S.ch[c].on;roll=null;break;
+    case 'vdiv':S.ch[c].vdi=Math.max(0,Math.min(VDIVS.length-1,S.ch[c].vdi+d));break;
+    case 'vpos':S.ch[c].pos=Math.max(-8,Math.min(8,Math.round((S.ch[c].pos+d*0.2)*10)/10));break;
+    case 'vpos0':S.ch[c].pos=0;break;
+    case 'tdiv':S.tdi=Math.max(0,Math.min(TDIVS.length-1,S.tdi+d));break;
+    case 'hpos':S.hpos=Math.max(-5,Math.min(15,S.hpos+d*0.5));break;
+    case 'lvl':{const st=0.1*vdiv(S.trig.src);S.trig.level=Math.round((S.trig.level+d*st)/st)*st;break;}
+    case 'lvl50':{const m=measure(S.trig.src);if(m)S.trig.level=(m.vmax+m.vmin)/2;else toast('No hay señal en pantalla en el canal de disparo');break;}
+    case 'runstop':S.running=!S.running;break;
+    case 'autoset':autoset();break;
+    case 'reset':{const tr=S.trace;S=defScope();S.trace=tr;roll=null;toast('Ajustes del osciloscopio reiniciados');break;}
+    case 'unplug':B.tips=[null,null];B.gnd=null;renderBench();break;
+    case 'close':$('#dlg').close();break;
+  }
+  updateUI();
+});
+$('#sensorSel').addEventListener('change',e=>{B.sensor=e.target.value;B.fault='none';
+  B.tips=B.tips.map(r=>r&&r.startsWith('bat.')?r:null);if(B.gnd&&!B.gnd.startsWith('bat.'))B.gnd=null;
+  fillSelects();renderBench();});
+$('#faultSel').addEventListener('change',e=>{B.fault=e.target.value;});
+$('#rpm').addEventListener('input',e=>{B.rpm=+e.target.value;updateEngine();});
+$('#thr').addEventListener('input',e=>{B.thr=+e.target.value/100;updateEngine();});
+$('#temp').addEventListener('input',e=>{B.temp=+e.target.value;updateEngine();});
+$('#sweep').addEventListener('change',e=>{B.sweep=e.target.checked;updateEngine();});
+$('#lockAuto').addEventListener('change',e=>{B.lock=e.target.checked;});
+$('#knockBtn').addEventListener('click',()=>{B.ks=T;B.ku=T+1.5;});
+
+/* ---------- Información ---------- */
+const INFO={
+inicio:['Cómo empezar',`<ol><li>Elige un componente en el banco de pruebas (empieza por el sensor Hall).</li><li>Selecciona «Punta CH1» y pulsa el borne de señal; después selecciona «Pinza de masa» y pulsa la masa del sensor.</li><li>Ajusta V/div hasta que la señal ocupe unas 4–6 divisiones en vertical. Con la posición vertical puedes bajar el 0 V para aprovechar la pantalla.</li><li>Ajusta tiempo/div hasta ver entre 2 y 5 periodos.</li><li>Coloca el nivel de disparo dentro de la señal (por ejemplo, a mitad de la amplitud) para que la imagen quede quieta.</li><li>Lee los valores con las medidas automáticas o con los cursores.</li></ol><p>El recuadro «Objetivo del ajuste» te va diciendo qué te falta. Pulsa cualquier botón <b>i</b> para saber para qué sirve cada mando.</p>`],
+pantalla:['La pantalla',`<p>La pantalla es una retícula de <b>10 divisiones en horizontal</b> y <b>8 en vertical</b>. Cada división vale lo que marquen los mandos: en vertical, los V/div de cada canal; en horizontal, el tiempo/div.</p><p>La flecha con el número <b>1</b> o <b>2</b> a la izquierda indica dónde está el 0 V de cada canal. La flecha de la derecha marca el <b>nivel de disparo</b> y el triángulo naranja de arriba, el <b>instante del disparo</b>.</p><p>Arriba a la izquierda verás el estado: DISPARADO (imagen estable), AUTO · SIN DISPARO (dibuja aunque no dispare, la imagen se mueve), ESPERANDO DISPARO, STOP o ROLL. Abajo tienes los ajustes de cada canal y de la base de tiempos.</p>`],
+canal:['Canales CH1 y CH2',`<p>Activa o desactiva cada canal. CH1 es amarillo y CH2 azul. Los dos canales comparten la misma masa, como en los osciloscopios de banco reales: las pinzas de masa de ambas sondas están unidas internamente, por eso aquí solo hay una.</p><p>Con dos canales puedes comparar señales: por ejemplo la señal de un sensor y la del cable de batería, o la alimentación y la señal del mismo sensor para localizar una avería.</p>`],
+vdiv:['Voltios por división (V/div)',`<p>Es la escala vertical. Con 1 V/div cada cuadro vale 1 V y la pantalla completa (8 div) abarca 8 V.</p><p>Un valor más pequeño da más sensibilidad: la señal se ve más alta. Regla práctica: ajusta hasta que la señal ocupe entre 4 y 6 divisiones sin salirse.</p><p>Si la señal se sale de la pantalla, el convertidor del osciloscopio se satura y las medidas automáticas dejan de ser fiables.</p>`],
+vpos:['Posición vertical',`<p>Desplaza la traza arriba o abajo sin cambiar la escala. Sirve para bajar el 0 V a la parte inferior de la pantalla y aprovechar toda la altura con señales que solo son positivas (Hall, inyector, bobina), o para separar las trazas de dos canales.</p><p>El botón <b>0</b> devuelve la traza al centro.</p>`],
+acople:['Acoplamiento DC / AC / GND',`<p><b>DC:</b> muestra la señal completa, incluida su componente continua. Es lo normal en automoción.</p><p><b>AC:</b> elimina la componente continua y deja solo lo que varía. Útil para ver pequeñas variaciones sobre una tensión grande, como el rizado del alternador sobre los 14 V de la batería (prueba con 50 mV/div).</p><p><b>GND:</b> desconecta la entrada y dibuja una línea en 0 V; sirve para situar la referencia en pantalla.</p>`],
+sonda:['Sonda ×1 / ×10',`<p>Con <b>×1</b> la señal entra directa. Con <b>×10</b> la sonda divide la tensión entre 10 y el osciloscopio multiplica la escala por 10, así puedes medir tensiones altas.</p><p>La necesitarás para el primario de la bobina de encendido, con picos de 300 a 500 V: con ×1 la escala máxima es de 10 V/div (80 V en pantalla).</p><p>En un osciloscopio real la sonda física y el ajuste del menú deben coincidir; si no, las lecturas salen multiplicadas o divididas por 10.</p>`],
+invertir:['Invertir',`<p>Da la vuelta a la señal (la multiplica por −1). Útil si has conectado la sonda al revés o para comparar señales de polaridad opuesta.</p>`],
+tdiv:['Tiempo por división',`<p>Es la escala horizontal. Con 10 ms/div la pantalla completa muestra 100 ms.</p><p>Un valor más pequeño muestra un intervalo más corto: la señal se estira. Regla práctica: busca ver entre 2 y 5 periodos.</p><p>A partir de 200 ms/div el osciloscopio pasa a <b>modo ROLL</b>: la traza avanza de derecha a izquierda como un registrador gráfico, sin disparo. Es ideal para señales lentas como la mariposa, el MAP, la sonda lambda o la temperatura.</p>`],
+hpos:['Posición horizontal',`<p>Mueve el instante del disparo (triángulo naranja) a lo largo de la pantalla. Te deja ver lo que pasa antes del disparo (pre-disparo) o centrar un detalle concreto, por ejemplo el pico inductivo del inyector o la línea de chispa de la bobina.</p>`],
+trigfuente:['Disparo (trigger) y fuente',`<p>El disparo es lo que hace que la imagen se quede quieta. El osciloscopio espera a que la señal cruce el nivel elegido con el flanco elegido y empieza a dibujar siempre desde ese punto, así cada barrido cae encima del anterior.</p><p>La <b>fuente</b> indica qué canal vigila el disparo. Normalmente es el canal donde está la señal principal.</p>`],
+flanco:['Flanco de disparo',`<p><b>↑ Subida:</b> dispara cuando la señal sube y cruza el nivel.</p><p><b>↓ Bajada:</b> dispara cuando la señal baja y cruza el nivel.</p><p>Ejemplo: en el inyector conviene ↓, porque el inicio de la inyección es cuando la ECU pone el cable de control a masa y la tensión cae.</p>`],
+nivel:['Nivel de disparo',`<p>Es la tensión a la que se produce el disparo, marcada con la flecha de la derecha.</p><p>Debe estar <b>dentro de la señal</b>, entre su mínimo y su máximo. Si queda por encima o por debajo, la señal nunca lo cruza y la imagen no se estabiliza.</p><p>«Nivel al 50 %» lo coloca a mitad de la amplitud de la señal que hay en pantalla.</p>`],
+trigmodo:['Modo de disparo',`<p><b>Auto:</b> si hay disparo la imagen es estable; si no lo hay, dibuja igualmente y la imagen se mueve. Es el modo para empezar a buscar la señal.</p><p><b>Normal:</b> solo dibuja cuando hay disparo; si no lo hay, mantiene la última imagen. Va bien con señales irregulares.</p><p><b>Único:</b> captura una sola vez cuando se cumple el disparo y se para en STOP. Ideal para eventos que ocurren una vez, como un fallo intermitente o un golpe de picado. Pulsa RUN para rearmarlo.</p>`],
+runstop:['Run / Stop',`<p><b>RUN:</b> el osciloscopio adquiere continuamente.</p><p><b>STOP:</b> congela la imagen para analizarla con calma, medir con cursores o enseñarla al grupo. Sobre la imagen congelada puedes seguir cambiando V/div y posición.</p>`],
+autoset:['Autoset',`<p>Ajuste automático: el osciloscopio analiza la señal y elige V/div, tiempo/div, posición y disparo.</p><p>Es cómodo, pero en automoción no siempre acierta (señales con huecos, picos muy estrechos o muy lentas) y no enseña a ajustar. Marca «Modo examen» para bloquearlo y practicar el ajuste manual.</p>`],
+medidas:['Medidas automáticas',`<p>Se calculan sobre lo que se ve en pantalla:</p><p><b>Vmáx / Vmín:</b> tensión máxima y mínima. <b>Vpp:</b> pico a pico (Vmáx − Vmín). <b>Vmed:</b> valor medio. <b>Frecuencia:</b> ciclos por segundo (Hz). <b>Periodo:</b> duración de un ciclo (1/frecuencia). <b>Ciclo de trabajo:</b> porcentaje del periodo en que la señal está por encima de la mitad de su amplitud.</p><p>Para medir frecuencia hay que ver al menos dos periodos. Si la señal se sale de la pantalla aparece ⚠ y la medida no es fiable.</p>`],
+cursores:['Cursores',`<p>Líneas que colocas a mano arrastrándolas sobre la pantalla.</p><p><b>Tiempo:</b> dos líneas verticales que indican la diferencia de tiempo (Δt) y su frecuencia equivalente (1/Δt). Úsalas para medir el tiempo de inyección o el tiempo de carga de la bobina.</p><p><b>Tensión:</b> dos líneas horizontales que indican la tensión de cada una y la diferencia (ΔV). «Sobre» indica de qué canal se toman los voltios.</p>`],
+puntas:['Punta y pinza de masa',`<p>Para medir hay que conectar dos cosas: la <b>punta</b> de la sonda en el punto a medir y la <b>pinza de masa</b> en una referencia (masa del componente o negativo de batería). El osciloscopio mide la diferencia de tensión entre la punta y la pinza.</p><p>Elige la herramienta y pulsa sobre el borne; vuelve a pulsar para soltarla. Si olvidas la pinza de masa, la medida queda flotando y aparece ruido.</p><p>Truco de diagnóstico: con la punta en la masa del sensor y la pinza en el negativo de batería mides la caída de tensión en el cable de masa.</p>`],
+banco:['Banco de pruebas',`<p>Elige el componente que quieres medir. Cada uno tiene su conector con los cables reales (alimentación, masa, señal...) y además están siempre disponibles los bornes de la batería.</p><p>Las señales son las típicas de un motor de gasolina de 4 cilindros con gestión electrónica.</p>`],
+motor:['Motor',`<p>Régimen (rpm), acelerador y temperatura del refrigerante. Cambian las señales igual que en el coche: más rpm, más frecuencia; más carga, más tensión en el MAP y en la mariposa y más tiempo de inyección; la NTC baja su tensión al calentarse.</p><p>Con 0 rpm el motor está parado con el contacto puesto. El barrido lento mueve el acelerador solo, para revisar la pista del potenciómetro en modo roll.</p>`],
+averias:['Averías',`<p>Como los interruptores del tablero del taller: provoca una avería en el componente y observa cómo cambia la señal.</p><p>Para localizar el fallo, mide uno a uno los bornes del conector: alimentación, masa y señal. Compara siempre con los valores de referencia.</p>`],
+objetivo:['Objetivo del ajuste',`<p>Ayuda en directo para el canal 1: indica si la amplitud, el número de periodos y el disparo están bien ajustados.</p><p>En «Valores de referencia» tienes la señal esperada y un ajuste orientativo. Si es un ejercicio de clase, conviene no abrirlo hasta haber intentado el ajuste.</p>`],
+reiniciar:['Reiniciar ajustes',`<p>Devuelve el osciloscopio a unos ajustes de partida desajustados (100 mV/div, 1 µs/div, disparo a 0 V), para que el alumno tenga que encontrar la señal por sí mismo. Las puntas siguen conectadas.</p>`]
+};
+function openInfo(k){const x=INFO[k];if(!x)return;$('#dlgT').textContent=x[0];$('#dlgB').innerHTML=x[1];$('#dlg').showModal();}
+
+/* ---------- Bucle ---------- */
+fillSelects();renderBench();updateEngine();updateUI();resize();
+let last=performance.now(),lastUi=0;
+function frame(now){let dt=(now-last)/1000;last=now;if(dt>0.1)dt=0.1;T+=dt;
+  const P=params();if(S.running)acquire(P);draw();
+  if(now-lastUi>200){updateMeas();if(B.sweep)$('#thro').textContent=Math.round(P.thr*100)+' %';lastUi=now;}
+  requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+</script>
+<script src="../../config.js"></script>
+<script src="../../js/api.js"></script>
+<script src="../../js/seguimiento.js" data-sim="osciloscopio"></script>
+<script src="retos.js"></script>
+</body>
+</html>
